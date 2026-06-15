@@ -28,5 +28,5 @@ This project strictly complies with the **Security & Malware Protection Protocol
 
 ## 🛠️ Stack
 - **Frontend**: Next.js (TypeScript, Tailwind CSS, shadcn/ui)
-- **Backend**: Supabase (PostgreSQL, Pgvector)
+- **Backend**: Firebase (Firestore NoSQL, Cloud Storage, Firebase Auth, Firestore Vector Search)
 - **AI Models**: `gemini-3.5-flash` via LiteLLM API Proxy

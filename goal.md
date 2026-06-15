@@ -248,14 +248,14 @@ Provide visibility into innovation activity across the company.
 
 ## Backend
 
-* Supabase
+* Firebase
 
 Services:
 
 * Authentication
-* PostgreSQL Database
-* Storage
-* pgvector
+* Firestore (NoSQL Database)
+* Cloud Storage
+* Vector Search (Firestore Vector Search / Embeddings)
 
 ---
 
@@ -269,7 +269,7 @@ Preferred:
 
 ## Vector Search
 
-Use pgvector for:
+Use Firestore Vector Search / Embeddings for:
 
 * Duplicate Detection
 * Similar Idea Discovery
