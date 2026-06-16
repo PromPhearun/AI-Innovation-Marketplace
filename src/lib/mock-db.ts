@@ -229,6 +229,35 @@ class MockDB {
         agentType: 'innovation',
         score: 10,
         analysis: 'Transformational regulatory risk modeling using agentic news screening.'
+      },
+      // Review 3 (Smart CRM Segmentation)
+      {
+        id: 'rev_3_b',
+        ideaId: 'idea_3',
+        agentType: 'business',
+        score: 8,
+        analysis: 'Strong potential to improve customer retention. Targeted offers can lead to higher lifetime value and conversion rates.'
+      },
+      {
+        id: 'rev_3_f',
+        ideaId: 'idea_3',
+        agentType: 'feasibility',
+        score: 7,
+        analysis: 'Highly feasible. Customer segmentation models are well-understood and can be built using standard machine learning libraries and historical CRM data.'
+      },
+      {
+        id: 'rev_3_e',
+        ideaId: 'idea_3',
+        agentType: 'employeeImpact',
+        score: 8,
+        analysis: 'Reduces manual marketing campaign planning. Allows marketers to easily target segments with minimal overhead.'
+      },
+      {
+        id: 'rev_3_i',
+        ideaId: 'idea_3',
+        agentType: 'innovation',
+        score: 8,
+        analysis: 'Good application of predictive modeling to CRM data, though similar systems are standard in mature marketing suites.'
       }
     ];
 

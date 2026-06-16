@@ -151,6 +151,12 @@ function FormattedExecutiveSummary({ text }: { text: string }) {
   );
 }
 
+const getGradientColors = (score: number) => {
+  if (score >= 75) return { stop1: '#10b981', stop2: '#06b6d4' }; // Emerald Green to Teal (highly green/vibrant)
+  if (score >= 50) return { stop1: '#f59e0b', stop2: '#10b981' }; // Amber Yellow to Emerald Green (moderately green)
+  return { stop1: '#ef4444', stop2: '#f97316' }; // Red to Orange (low score, not green)
+};
+
 export default function IdeaDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -170,11 +176,12 @@ export default function IdeaDetailsPage() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isVoting, setIsVoting] = useState(false);
 
   const fetchIdeaDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/ideas/${id}`);
+      const res = await fetch(`/api/ideas/${id}?t=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) {
         setIdea(null);
         return;
@@ -199,8 +206,9 @@ export default function IdeaDetailsPage() {
   }, [id, fetchIdeaDetails]);
 
   const handleVote = async (value: 1 | -1) => {
-    if (!currentUser || !idea) return;
+    if (!currentUser || !idea || isVoting) return;
     try {
+      setIsVoting(true);
       const res = await fetch(`/api/ideas/${idea.id}/vote`, {
         method: 'POST',
         headers: {
@@ -211,8 +219,8 @@ export default function IdeaDetailsPage() {
       });
 
       if (res.ok) {
-        // Refresh votes
-        const detailsRes = await fetch(`/api/ideas/${idea.id}`);
+        // Refresh votes with cache bypass
+        const detailsRes = await fetch(`/api/ideas/${idea.id}?t=${Date.now()}`, { cache: 'no-store' });
         if (detailsRes.ok) {
           const details = await detailsRes.json();
           setVotes(details.votes || []);
@@ -220,6 +228,8 @@ export default function IdeaDetailsPage() {
       }
     } catch (err) {
       console.error('Error voting:', err);
+    } finally {
+      setIsVoting(false);
     }
   };
 
@@ -235,13 +245,13 @@ export default function IdeaDetailsPage() {
           'Content-Type': 'application/json',
           'x-user-id': currentUser.id,
         },
-        body: JSON.stringify({ content: newCommentText }),
+        body: JSON.stringify({ comment: newCommentText }),
       });
 
       if (res.ok) {
         setNewCommentText('');
         // Refresh comments list
-        const detailsRes = await fetch(`/api/ideas/${idea.id}`);
+        const detailsRes = await fetch(`/api/ideas/${idea.id}?t=${Date.now()}`, { cache: 'no-store' });
         if (detailsRes.ok) {
           const details = await detailsRes.json();
           setComments(details.comments || []);
@@ -299,6 +309,14 @@ export default function IdeaDetailsPage() {
   // Vote calculations
   const voteScore = votes.reduce((acc, v) => acc + v.vote, 0);
   const userVote = currentUser ? votes.find((v) => v.userId === currentUser.id)?.vote : undefined;
+
+  // Circular progress calculations for Innovation Score
+  const score = idea ? idea.innovationScore : 0;
+  const radius = 58;
+  const strokeWidth = 8;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (score / 100) * circumference;
+  const gradColors = getGradientColors(score);
 
   if (loading) {
     return (
@@ -441,14 +459,15 @@ export default function IdeaDetailsPage() {
           {/* Voting Box */}
           <div className="flex items-center gap-3.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl self-start lg:self-auto">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-2">Vote on Draft</span>
-            <div className="flex items-center gap-1">
+            <div className={`flex items-center gap-1 ${isVoting ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
               <button
                 onClick={() => handleVote(1)}
+                disabled={isVoting}
                 className={`p-1.5 rounded-xl transition-colors ${
                   userVote === 1
                     ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent'
-                }`}
+                } ${isVoting ? 'cursor-not-allowed' : ''}`}
                 title="Upvote Idea"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -460,11 +479,12 @@ export default function IdeaDetailsPage() {
               </span>
               <button
                 onClick={() => handleVote(-1)}
+                disabled={isVoting}
                 className={`p-1.5 rounded-xl transition-colors ${
                   userVote === -1
                     ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent'
-                }`}
+                } ${isVoting ? 'cursor-not-allowed' : ''}`}
                 title="Downvote Idea"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -616,12 +636,46 @@ export default function IdeaDetailsPage() {
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Innovation Score</h3>
               
               <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
-                {/* Score background arc */}
-                <div className="absolute inset-0 rounded-full border-4 border-slate-100 dark:border-slate-900" />
-                {/* Real interactive score */}
-                <div className="text-center">
-                  <span className="text-4xl font-black text-slate-900 dark:text-white">{idea.innovationScore}</span>
-                  <span className="text-slate-500 text-xs block mt-0.5">out of 100</span>
+                {/* SVG Progress Ring with Dynamic Gradients */}
+                <svg className="w-full h-full transform -rotate-90">
+                  <defs>
+                    <linearGradient id={`scoreGrad-${score}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={gradColors.stop1} />
+                      <stop offset="100%" stopColor={gradColors.stop2} />
+                    </linearGradient>
+                  </defs>
+                  {/* Background Circle */}
+                  <circle
+                    cx="72"
+                    cy="72"
+                    r={radius}
+                    className="stroke-slate-100 dark:stroke-slate-900"
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                  />
+                  {/* Foreground Progress Circle */}
+                  <circle
+                    cx="72"
+                    cy="72"
+                    r={radius}
+                    stroke={`url(#scoreGrad-${score})`}
+                    strokeWidth={strokeWidth}
+                    fill="transparent"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out"
+                  />
+                </svg>
+
+                {/* Real interactive score overlaid inside */}
+                <div className="absolute text-center">
+                  <span className="text-4xl font-black text-slate-900 dark:text-white leading-none">
+                    {score}
+                  </span>
+                  <span className="text-slate-500 dark:text-slate-400 text-[10px] block font-semibold uppercase tracking-wider mt-1.5">
+                    out of 100
+                  </span>
                 </div>
               </div>
 
