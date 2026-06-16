@@ -19,7 +19,7 @@ const evaluationStages = [
   'Deploying Employee Impact Council for cultural synergy rating...',
   'Engaging Chief Innovation Officer to review novelty aspects...',
   'Aggregating scores and writing executive summary...',
-  'Finalizing sandbox deployment...'
+  'Finalizing deployment...'
 ];
 
 export default function SubmitIdeaPage() {
@@ -165,25 +165,25 @@ export default function SubmitIdeaPage() {
   return (
     <LayoutWrapper>
       {isEvaluating ? (
-        /* Multi-Agent Sandbox Evaluation Screening Loader */
-        <div className="flex flex-col items-center justify-center min-h-[70vh] bg-slate-950 rounded-3xl border border-slate-800 p-8 text-center space-y-8 animate-fade-in">
+        /* Multi-Agent Evaluation Screening Loader */
+        <div className="flex flex-col items-center justify-center min-h-[70vh] bg-white dark:bg-slate-950 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-8 animate-fade-in shadow-xl">
           <div className="relative">
             {/* Pulsing glow behind spinner */}
             <div className="absolute inset-0 rounded-full bg-indigo-500/20 blur-xl animate-pulse" />
-            <div className="w-24 h-24 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin relative z-10" />
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-400">
+            <div className="w-24 h-24 rounded-full border-4 border-slate-200 dark:border-slate-800 border-t-indigo-500 animate-spin relative z-10" />
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-500 dark:text-slate-400">
               AGENT DB
             </span>
           </div>
 
           <div className="max-w-md mx-auto space-y-4">
-            <h2 className="text-2xl font-extrabold text-white tracking-tight animate-pulse">
+            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight animate-pulse">
               AI Multi-Agent Evaluation Active
             </h2>
-            <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-slate-300 font-mono text-xs text-left h-24 flex items-center shadow-inner">
+            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-mono text-xs text-left h-24 flex items-center shadow-inner">
               <span className="animate-fade-in-fast">{evaluationStages[evaluationStage]}</span>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Four specialized domain-specific LLM agents are currently reviewing your idea draft. Do not close this page.
             </p>
           </div>
@@ -194,36 +194,36 @@ export default function SubmitIdeaPage() {
           {/* Form Side */}
           <div className="lg:col-span-2 space-y-6">
             <div>
-              <h1 className="text-3xl font-extrabold text-white tracking-tight">Submit Your Innovation Draft</h1>
-              <p className="text-slate-400 mt-1 text-sm">
+              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Submit Your Innovation Draft</h1>
+              <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
                 Fill in the details below. Our AI Multi-Agent system will immediately analyze and score your proposal.
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-6">
+            <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-6 shadow-sm">
               {formErrors.submit && (
-                <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl font-semibold">
+                <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-semibold">
                   {formErrors.submit}
                 </div>
               )}
 
               {/* Title Input */}
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">Idea Title</label>
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">Idea Title</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Dynamic Shift Rotation Optimization with AI Scheduling"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className={`w-full bg-slate-900 border ${
-                    formErrors.title ? 'border-rose-500' : 'border-slate-800'
-                  } rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-500`}
+                  className={`w-full bg-white dark:bg-slate-900 border ${
+                    formErrors.title ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                  } rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500`}
                 />
                 {formErrors.title ? (
-                  <p className="text-xs text-rose-400 font-medium">{formErrors.title}</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{formErrors.title}</p>
                 ) : (
-                  <p className="text-[10px] text-slate-500">Must be at least 5 characters. Be clear and specific.</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Must be at least 5 characters. Be clear and specific.</p>
                 )}
               </div>
 
@@ -231,11 +231,11 @@ export default function SubmitIdeaPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Department */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">Department</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">Department</label>
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
                   >
                     <option value="engineering">Engineering</option>
                     <option value="marketing">Marketing</option>
@@ -247,11 +247,11 @@ export default function SubmitIdeaPage() {
 
                 {/* Category */}
                 <div className="space-y-1.5">
-                  <label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">Category</label>
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">Category</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
                   >
                     <option value="Process Optimization">Process Optimization</option>
                     <option value="Product Innovation">Product Innovation</option>
@@ -264,27 +264,27 @@ export default function SubmitIdeaPage() {
 
               {/* Description Input */}
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">Detailed Proposal</label>
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">Detailed Proposal</label>
                 <textarea
                   required
                   rows={6}
                   placeholder="Provide a detailed overview of the idea, describing the problem it solves, how it will be implemented, and any operational challenges it resolves."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className={`w-full bg-slate-900 border ${
-                    formErrors.description ? 'border-rose-500' : 'border-slate-800'
-                  } rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-500 leading-relaxed`}
+                  className={`w-full bg-white dark:bg-slate-900 border ${
+                    formErrors.description ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                  } rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed`}
                 />
                 {formErrors.description ? (
-                  <p className="text-xs text-rose-400 font-medium">{formErrors.description}</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{formErrors.description}</p>
                 ) : (
-                  <p className="text-[10px] text-slate-500">Must be at least 15 characters.</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Must be at least 15 characters.</p>
                 )}
               </div>
 
               {/* Expected Benefits Input */}
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-300 font-bold uppercase tracking-wider block">
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
                   Expected Benefits (Metrics / Value Addition)
                 </label>
                 <textarea
@@ -292,21 +292,21 @@ export default function SubmitIdeaPage() {
                   placeholder="e.g. Reduces scheduling turnaround by 40%, increases employee department satisfaction index by 15%."
                   value={expectedBenefits}
                   onChange={(e) => setExpectedBenefits(e.target.value)}
-                  className={`w-full bg-slate-900 border ${
-                    formErrors.expectedBenefits ? 'border-rose-500' : 'border-slate-800'
-                  } rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-500 leading-relaxed`}
+                  className={`w-full bg-white dark:bg-slate-900 border ${
+                    formErrors.expectedBenefits ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                  } rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed`}
                 />
                 {formErrors.expectedBenefits && (
-                  <p className="text-xs text-rose-400 font-medium">{formErrors.expectedBenefits}</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{formErrors.expectedBenefits}</p>
                 )}
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-900">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
                 <button
                   type="button"
                   onClick={() => router.push('/')}
-                  className="bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs px-4 py-2.5 rounded-xl border border-slate-800 transition-all"
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all"
                 >
                   Cancel
                 </button>
@@ -321,21 +321,21 @@ export default function SubmitIdeaPage() {
             </form>
           </div>
 
-          {/* Right Side: Similarity & Duplicate Alert Sandbox */}
+          {/* Right Side: Similarity & Duplicate Alert */}
           <div className="space-y-6">
-            <div className="bg-slate-950 border border-slate-800 p-6 rounded-2xl space-y-4">
+            <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Duplicate Engine Sandbox</h3>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Duplicate Engine</h3>
                 {checkingSimilarity && (
                   <span className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-ping" />
-                    <span className="text-[10px] text-slate-500 font-semibold">Running comparison...</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Running comparison...</span>
                   </span>
                 )}
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
-                As you fill out your draft proposal, the AI Sandbox compares your ideas in real-time with existing submissions to prevent redundant duplicates.
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                As you fill out your draft proposal, the AI engine compares your ideas in real-time with existing submissions to prevent redundant duplicates.
               </p>
 
               {similarIdeas.length > 0 ? (
@@ -343,8 +343,8 @@ export default function SubmitIdeaPage() {
                   <div
                     className={`p-4 rounded-xl border ${
                       highSimilarityWarningExists
-                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                        : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                        ? 'bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400'
+                        : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'
                     } flex items-start gap-3`}
                   >
                     <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -359,7 +359,7 @@ export default function SubmitIdeaPage() {
                       <h4 className="text-xs font-bold uppercase tracking-wider">
                         {highSimilarityWarningExists ? 'CRITICAL DUPLICATE DETECTED' : 'POTENTIAL SIMILAR IDEAS'}
                       </h4>
-                      <p className="text-[10px] text-slate-400 leading-relaxed">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
                         {highSimilarityWarningExists
                           ? 'A highly similar proposal already exists. We strongly advise merging features into the existing proposal to avoid rejection.'
                           : 'Some overlapping ideas have been found. Review them to ensure your proposal offers unique value.'}
@@ -372,17 +372,17 @@ export default function SubmitIdeaPage() {
                     {similarIdeas.map((idea) => (
                       <div
                         key={idea.id}
-                        className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between gap-4 hover:border-slate-700 cursor-pointer transition-colors"
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between gap-4 hover:border-slate-300 dark:hover:border-slate-700 cursor-pointer transition-colors"
                         onClick={() => router.push(`/ideas/${idea.id}`)}
                       >
-                        <span className="text-xs text-slate-300 font-semibold truncate hover:underline">
+                        <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold truncate hover:underline">
                           {idea.title}
                         </span>
                         <span
                           className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded border ${
                             idea.score >= 50
-                              ? 'text-rose-400 border-rose-500/20 bg-rose-500/5'
-                              : 'text-amber-400 border-amber-500/20 bg-amber-500/5'
+                              ? 'text-rose-600 border-rose-200 dark:text-rose-400 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/5'
+                              : 'text-amber-700 border-amber-200 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/5'
                           }`}
                         >
                           {idea.score}% Match
@@ -392,11 +392,11 @@ export default function SubmitIdeaPage() {
                   </div>
                 </div>
               ) : (
-                <div className="border border-dashed border-slate-800 p-8 text-center rounded-xl">
-                  <svg className="w-8 h-8 text-slate-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center rounded-xl">
+                  <svg className="w-8 h-8 text-slate-400 dark:text-slate-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                   </svg>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     Draft proposal is fully unique! No duplicates detected yet.
                   </p>
                 </div>

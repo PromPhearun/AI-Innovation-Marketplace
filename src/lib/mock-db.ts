@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
 import { User, Idea, AIReview, Vote, Comment } from '@/types';
 
 // Let's create an in-memory database for server-side fallback
@@ -17,36 +18,90 @@ class MockDB {
     return typeof window !== 'undefined';
   }
 
-  private loadFromStorage() {
-    if (!this.isClient()) return;
-
+  private getFilePath(): string | null {
+    if (typeof window !== 'undefined') return null;
     try {
-      this.users = JSON.parse(localStorage.getItem('dim_users') || '[]');
-      this.ideas = JSON.parse(localStorage.getItem('dim_ideas') || '[]');
-      this.reviews = JSON.parse(localStorage.getItem('dim_reviews') || '[]');
-      this.votes = JSON.parse(localStorage.getItem('dim_votes') || '[]');
-      this.comments = JSON.parse(localStorage.getItem('dim_comments') || '[]');
-
-      // If empty, initialize with some default data
-      if (this.ideas.length === 0) {
-        this.initializeDefaultData();
-      }
+      const req = require;
+      const path = req('path');
+      return path.join(process.cwd(), 'src/lib/mock-db.json');
     } catch (e) {
-      console.error('Error loading mock DB from localstorage:', e);
+      return null;
+    }
+  }
+
+  private loadFromStorage() {
+    if (this.isClient()) {
+      try {
+        this.users = JSON.parse(localStorage.getItem('dim_users') || '[]');
+        this.ideas = JSON.parse(localStorage.getItem('dim_ideas') || '[]');
+        this.reviews = JSON.parse(localStorage.getItem('dim_reviews') || '[]');
+        this.votes = JSON.parse(localStorage.getItem('dim_votes') || '[]');
+        this.comments = JSON.parse(localStorage.getItem('dim_comments') || '[]');
+
+        // If empty, initialize with some default data
+        if (this.ideas.length === 0) {
+          this.initializeDefaultData();
+        }
+      } catch (e) {
+        console.error('Error loading mock DB from localstorage:', e);
+      }
+    } else {
+      // Server-side file persistence
+      const filePath = this.getFilePath();
+      if (!filePath) return;
+
+      try {
+        const req = require;
+        const fs = req('fs');
+        if (fs.existsSync(filePath)) {
+          const rawData = fs.readFileSync(filePath, 'utf-8');
+          const data = JSON.parse(rawData);
+          this.users = data.users || [];
+          this.ideas = data.ideas || [];
+          this.reviews = data.reviews || [];
+          this.votes = data.votes || [];
+          this.comments = data.comments || [];
+        } else {
+          // Initialize with defaults if file doesn't exist
+          this.initializeDefaultData();
+          this.saveToStorage();
+        }
+      } catch (e) {
+        console.error('Error loading mock DB from file:', e);
+      }
     }
   }
 
   private saveToStorage() {
-    if (!this.isClient()) return;
+    if (this.isClient()) {
+      try {
+        localStorage.setItem('dim_users', JSON.stringify(this.users));
+        localStorage.setItem('dim_ideas', JSON.stringify(this.ideas));
+        localStorage.setItem('dim_reviews', JSON.stringify(this.reviews));
+        localStorage.setItem('dim_votes', JSON.stringify(this.votes));
+        localStorage.setItem('dim_comments', JSON.stringify(this.comments));
+      } catch (e) {
+        console.error('Error saving mock DB to localstorage:', e);
+      }
+    } else {
+      // Server-side file persistence
+      const filePath = this.getFilePath();
+      if (!filePath) return;
 
-    try {
-      localStorage.setItem('dim_users', JSON.stringify(this.users));
-      localStorage.setItem('dim_ideas', JSON.stringify(this.ideas));
-      localStorage.setItem('dim_reviews', JSON.stringify(this.reviews));
-      localStorage.setItem('dim_votes', JSON.stringify(this.votes));
-      localStorage.setItem('dim_comments', JSON.stringify(this.comments));
-    } catch (e) {
-      console.error('Error saving mock DB to localstorage:', e);
+      try {
+        const req = require;
+        const fs = req('fs');
+        const data = {
+          users: this.users,
+          ideas: this.ideas,
+          reviews: this.reviews,
+          votes: this.votes,
+          comments: this.comments,
+        };
+        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
+      } catch (e) {
+        console.error('Error saving mock DB to file:', e);
+      }
     }
   }
 

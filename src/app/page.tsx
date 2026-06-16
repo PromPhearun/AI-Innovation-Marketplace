@@ -156,9 +156,9 @@ export default function DashboardPage() {
         {/* Header / Intro Banner */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">Innovation Portfolio</h1>
-            <p className="text-slate-400 mt-1.5 text-sm">
-              Discover, evaluate, and sand-box high-impact ideas powered by AI multi-agent evaluation.
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Innovation Portfolio</h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1.5 text-sm">
+              Discover, evaluate, and test high-impact ideas powered by AI multi-agent evaluation.
             </p>
           </div>
           <button
@@ -180,14 +180,14 @@ export default function DashboardPage() {
         {/* High Fidelity Metrics Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Card 1 */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-all" />
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Ideas</p>
-                <h3 className="text-3xl font-black text-slate-100 mt-1">{loading ? '...' : totalIdeasCount}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Ideas</p>
+                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1">{loading ? '...' : totalIdeasCount}</h3>
               </div>
-              <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -198,82 +198,82 @@ export default function DashboardPage() {
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
-              <span className="text-emerald-400 font-semibold">100% active</span> submissions
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">100% active</span> submissions
             </p>
           </div>
 
           {/* Card 2 */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all" />
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Approved Projects</p>
-                <h3 className="text-3xl font-black text-emerald-400 mt-1">{loading ? '...' : approvedCount}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Approved Projects</p>
+                <h3 className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{loading ? '...' : approvedCount}</h3>
               </div>
-              <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-emerald-400">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
               Ready for executive implementation
             </p>
           </div>
 
           {/* Card 3 */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all" />
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Review Sandbox</p>
-                <h3 className="text-3xl font-black text-amber-400 mt-1">{loading ? '...' : pendingCount}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Review Hub</p>
+                <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 mt-1">{loading ? '...' : pendingCount}</h3>
               </div>
-              <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-amber-400">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-amber-600 dark:text-amber-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
-              Awaiting agent sandbox evaluation
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
+              Awaiting agent evaluation
             </p>
           </div>
 
           {/* Card 4 */}
-          <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-700 transition-all">
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/10 transition-all" />
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Avg Innovation Score</p>
-                <h3 className="text-3xl font-black text-indigo-400 mt-1">{loading ? '...' : `${averageInnovationScore}/100`}</h3>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Avg Innovation Score</p>
+                <h3 className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{loading ? '...' : `${averageInnovationScore}/100`}</h3>
               </div>
-              <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-indigo-400">
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.001 0 0120.488 9z" />
                 </svg>
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-4 flex items-center gap-1">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
               Calculated across multi-agents
             </p>
           </div>
         </div>
 
         {/* Interactive Search, Filter and Tabs block */}
-        <div className="bg-slate-950 rounded-2xl border border-slate-800 p-6 space-y-6">
+        <div className="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 space-y-6 shadow-sm">
           {/* Tabs header & search */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800/80 pb-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-4">
             {/* Tab items */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setActiveTab('all')}
                 className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
                   activeTab === 'all'
-                    ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                    : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                    ? 'bg-indigo-600/10 dark:bg-indigo-600/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                 }`}
               >
                 All Ideas
@@ -284,13 +284,13 @@ export default function DashboardPage() {
                   onClick={() => setActiveTab('pending')}
                   className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 flex items-center gap-2 ${
                     activeTab === 'pending'
-                      ? 'bg-amber-600/15 text-amber-400 border border-amber-500/20'
-                      : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                      ? 'bg-amber-600/10 dark:bg-amber-600/15 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                   }`}
                 >
                   Needs Review
                   {pendingCount > 0 && (
-                    <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                    <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
                       {pendingCount}
                     </span>
                   )}
@@ -301,8 +301,8 @@ export default function DashboardPage() {
                 onClick={() => setActiveTab('mine')}
                 className={`px-4 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
                   activeTab === 'mine'
-                    ? 'bg-indigo-600/15 text-indigo-400 border border-indigo-500/20'
-                    : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                    ? 'bg-indigo-600/10 dark:bg-indigo-600/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                 }`}
               >
                 My Submissions
@@ -311,7 +311,7 @@ export default function DashboardPage() {
 
             {/* Quick Search */}
             <div className="relative w-full lg:max-w-xs">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-500">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                 placeholder="Search ideas..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-900 text-slate-100 border border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all placeholder:text-slate-500"
+                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
               />
             </div>
           </div>
@@ -330,11 +330,11 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Department */}
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold px-0.5">Filter by Department</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Department</label>
               <select
                 value={selectedDept}
                 onChange={(e) => setSelectedDept(e.target.value)}
-                className="w-full text-sm bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
               >
                 {departments.map((dept) => (
                   <option key={dept} value={dept}>
@@ -346,11 +346,11 @@ export default function DashboardPage() {
 
             {/* Category */}
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold px-0.5">Filter by Category</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Category</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full text-sm bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
               >
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>
@@ -362,11 +362,11 @@ export default function DashboardPage() {
 
             {/* Status */}
             <div className="space-y-1.5">
-              <label className="text-xs text-slate-400 font-semibold px-0.5">Filter by Status</label>
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Status</label>
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full text-sm bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
               >
                 <option value="All">All Statuses</option>
                 <option value="submitted">Submitted</option>
@@ -382,23 +382,23 @@ export default function DashboardPage() {
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-slate-950 border border-slate-800 p-6 rounded-2xl h-48 animate-pulse space-y-4">
+              <div key={i} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl h-48 animate-pulse space-y-4 shadow-sm">
                 <div className="flex justify-between">
-                  <div className="h-6 w-32 bg-slate-900 rounded" />
-                  <div className="h-6 w-12 bg-slate-900 rounded" />
+                  <div className="h-6 w-32 bg-slate-100 dark:bg-slate-900 rounded" />
+                  <div className="h-6 w-12 bg-slate-100 dark:bg-slate-900 rounded" />
                 </div>
-                <div className="h-4 w-full bg-slate-900 rounded" />
-                <div className="h-4 w-3/4 bg-slate-900 rounded" />
+                <div className="h-4 w-full bg-slate-100 dark:bg-slate-900 rounded" />
+                <div className="h-4 w-3/4 bg-slate-100 dark:bg-slate-900 rounded" />
                 <div className="flex gap-4 pt-4">
-                  <div className="h-6 w-16 bg-slate-900 rounded" />
-                  <div className="h-6 w-16 bg-slate-900 rounded" />
+                  <div className="h-6 w-16 bg-slate-100 dark:bg-slate-900 rounded" />
+                  <div className="h-6 w-16 bg-slate-100 dark:bg-slate-900 rounded" />
                 </div>
               </div>
             ))}
           </div>
         ) : filteredIdeas.length === 0 ? (
-          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-12 text-center space-y-4">
-            <div className="p-4 bg-slate-900/80 w-16 h-16 rounded-2xl flex items-center justify-center border border-slate-800 text-slate-500 mx-auto">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-12 text-center space-y-4 shadow-sm">
+            <div className="p-4 bg-slate-100/80 dark:bg-slate-900/80 w-16 h-16 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 mx-auto">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -409,8 +409,8 @@ export default function DashboardPage() {
               </svg>
             </div>
             <div className="max-w-md mx-auto space-y-2">
-              <h3 className="text-lg font-bold text-white">No Innovation Ideas Found</h3>
-              <p className="text-sm text-slate-400">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">No Innovation Ideas Found</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 We were unable to find any ideas matching the current search parameters or active tab filter.
               </p>
             </div>
@@ -422,7 +422,7 @@ export default function DashboardPage() {
                 setSelectedStatus('All');
                 setActiveTab('all');
               }}
-              className="bg-slate-900 border border-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold hover:bg-slate-800 hover:text-white transition-all"
+              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold hover:dark:bg-slate-800 hover:dark:text-white transition-all"
             >
               Reset Filters
             </button>
@@ -434,16 +434,16 @@ export default function DashboardPage() {
               return (
                 <div
                   key={idea.id}
-                  className="bg-slate-950 border border-slate-800/80 hover:border-slate-700/80 p-6 rounded-2xl shadow-sm hover:shadow-md hover:shadow-indigo-500/[0.02] flex gap-5 transition-all duration-200 group relative"
+                  className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80 p-6 rounded-2xl shadow-sm hover:shadow-md hover:shadow-indigo-500/[0.02] flex gap-5 transition-all duration-200 group relative"
                 >
                   {/* Left Side: Vote Selector */}
-                  <div className="flex flex-col items-center gap-1.5 self-start bg-slate-900/60 border border-slate-800/50 p-2.5 rounded-xl">
+                  <div className="flex flex-col items-center gap-1.5 self-start bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/50 p-2.5 rounded-xl">
                     <button
                       onClick={() => handleVote(idea.id, 1)}
                       className={`p-1 rounded-lg transition-colors ${
                         userVote === 1
-                          ? 'text-indigo-400 bg-indigo-500/10'
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                          ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10'
+                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                       title="Upvote Idea"
                     >
@@ -451,15 +451,15 @@ export default function DashboardPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
                       </svg>
                     </button>
-                    <span className={`text-sm font-bold ${score >= 0 ? 'text-slate-200' : 'text-slate-400'}`}>
+                    <span className={`text-sm font-bold ${score >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
                       {score}
                     </span>
                     <button
                       onClick={() => handleVote(idea.id, -1)}
                       className={`p-1 rounded-lg transition-colors ${
                         userVote === -1
-                          ? 'text-rose-400 bg-rose-500/10'
-                          : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
+                          ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
+                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                       title="Downvote Idea"
                     >
@@ -478,10 +478,10 @@ export default function DashboardPage() {
                           <span className={`text-[10px] font-bold border rounded-md px-2 py-0.5 uppercase ${getStatusBadgeColor(idea.status)}`}>
                             {idea.status.replace('_', ' ')}
                           </span>
-                          <span className="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md font-semibold">
                             {idea.category}
                           </span>
-                          <span className="text-[10px] text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md font-semibold">
                             {ideaDepartmentFormatted(idea.department)}
                           </span>
                         </div>
@@ -500,26 +500,26 @@ export default function DashboardPage() {
                       {/* Title & Desc */}
                       <h3
                         onClick={() => router.push(`/ideas/${idea.id}`)}
-                        className="text-lg font-bold text-slate-100 group-hover:text-indigo-400 hover:underline transition-all cursor-pointer truncate"
+                        className="text-lg font-bold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 hover:underline transition-all cursor-pointer truncate"
                       >
                         {idea.title}
                       </h3>
-                      <p className="text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
+                      <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
                         {idea.description}
                       </p>
                     </div>
 
                     {/* Metadata bottom section */}
-                    <div className="flex items-center justify-between border-t border-slate-800/60 pt-4 mt-5">
+                    <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 pt-4 mt-5">
                       <div className="flex items-center gap-2">
-                        <div className="w-5.5 h-5.5 rounded-full bg-slate-800 text-[10px] font-semibold text-slate-300 flex items-center justify-center uppercase">
+                        <div className="w-5.5 h-5.5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-300 flex items-center justify-center uppercase">
                           {idea.createdBy.slice(-2)}
                         </div>
-                        <span className="text-[10px] font-semibold text-slate-400">
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                           By User #{idea.createdBy.split('_')[1] || idea.createdBy}
                         </span>
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-500">
+                      <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
                         {new Date(idea.createdAt).toLocaleDateString()}
                       </span>
                     </div>
