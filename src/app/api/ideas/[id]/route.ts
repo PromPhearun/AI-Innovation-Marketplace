@@ -17,12 +17,14 @@ export async function GET(
     const reviews = await reviewsService.getReviews(id);
     const comments = await ideasService.getComments(id);
     const votes = await ideasService.getVotes(id);
+    const summary = await ideasService.getSummary(id);
 
     return NextResponse.json({
       idea,
       reviews,
       comments,
       votes,
+      summary,
     });
   } catch (error) {
     console.error('API Error in GET /api/ideas/[id]:', error);

@@ -61,6 +61,18 @@
       "expectedBenefits": "Improve open-rates by 25% and overall retention of dormant users.",
       "createdBy": "user_3",
       "createdAt": "2026-06-15T15:19:53.355Z"
+    },
+    {
+      "id": "idea_1781617657947",
+      "title": "AI Partner Health & Risk Monitor",
+      "description": "Problem Statement:\nPartner Managers currently need to manually monitor partner performance across multiple dashboards and reports. Declining partner activity, abnormal traffic patterns, or early signs of churn may go unnoticed until significant business impact has already occurred.\n\nProposed Solution:\nDevelop an AI-powered monitoring system that continuously analyzes partner activity and automatically identifies risks, opportunities, and anomalies.\n\nThe AI would monitor:\n\nRegistrations\nDeposits\nTrading volume\nConversion rates\nCampaign engagement\nTraffic quality\n\nThe system would proactively generate alerts such as:\n\nPartner activity is declining by 30%\nUnusual registration spikes detected\nHigh-potential partners showing growth trends\nRecommended actions to improve performance",
+      "department": "operations",
+      "category": "Process Optimization",
+      "expectedBenefits": "Expected Benefits:\n\nEarly detection of partner churn risks\nFaster intervention by Partner Managers\nImproved partner retention\nBetter allocation of account management resources\n\nBusiness Impact:\n\nIncreased partner retention\nImproved revenue protection\nReduced manual monitoring effort\nBetter partner relationship management\n\nEstimated ROI:\nVery High",
+      "status": "submitted",
+      "innovationScore": 76,
+      "createdBy": "user_3",
+      "createdAt": "2026-06-16T13:47:37.947Z"
     }
   ],
   "reviews": [
@@ -189,6 +201,48 @@
       "agentType": "customerImpact",
       "score": 8,
       "analysis": "Provides highly relevant, custom experiences for platform users, avoiding generic marketing spam and maximizing adoption rates."
+    },
+    {
+      "id": "rev_idea_1781617657947_0",
+      "ideaId": "idea_1781617657947",
+      "agentType": "business",
+      "score": 9,
+      "analysis": "Protecting partner-driven revenue streams directly impacts our top-line stability, making the ROI on this tool exceptionally high. By automating anomaly detection, we mitigate the financial risk of sudden partner churn before it impacts quarterly earnings."
+    },
+    {
+      "id": "rev_idea_1781617657947_1",
+      "ideaId": "idea_1781617657947",
+      "agentType": "feasibility",
+      "score": 7,
+      "analysis": "While the machine learning models for anomaly detection are standard, the primary challenge lies in consolidating disparate real-time data streams into a unified pipeline. We must ensure data latency is minimized to make the proactive alerts truly actionable."
+    },
+    {
+      "id": "rev_idea_1781617657947_2",
+      "ideaId": "idea_1781617657947",
+      "agentType": "employeeImpact",
+      "score": 8,
+      "analysis": "This tool will significantly reduce cognitive fatigue for Partner Managers by eliminating the need to manually scan multiple dashboards daily. It shifts their role from reactive firefighting to proactive relationship management, boosting morale and productivity."
+    },
+    {
+      "id": "rev_idea_1781617657947_3",
+      "ideaId": "idea_1781617657947",
+      "agentType": "innovation",
+      "score": 6,
+      "analysis": "While predictive analytics and anomaly detection are mature AI patterns, applying them specifically to partner lifecycle management provides a solid operational edge. It is a highly practical application of AI rather than a groundbreaking technological leap."
+    },
+    {
+      "id": "rev_idea_1781617657947_4",
+      "ideaId": "idea_1781617657947",
+      "agentType": "security",
+      "score": 7,
+      "analysis": "Monitoring partner trading volumes and deposits introduces compliance risks regarding data privacy and financial regulations. We will need strict role-based access controls and data masking to ensure this monitoring system does not expose sensitive partner information."
+    },
+    {
+      "id": "rev_idea_1781617657947_5",
+      "ideaId": "idea_1781617657947",
+      "agentType": "customerImpact",
+      "score": 8,
+      "analysis": "By identifying struggling partners early, our team can intervene with targeted support, dramatically improving the partner experience and retention rates. High-performing partners will also benefit from timely recognition and growth recommendations, strengthening our ecosystem."
     }
   ],
   "votes": [

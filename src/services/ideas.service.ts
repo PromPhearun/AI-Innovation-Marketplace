@@ -171,13 +171,9 @@ export const ideasService = {
   // Executive Summary API
   async getSummary(ideaId: string): Promise<Summary | null> {
     if (!isFirebaseConfigured) {
-      // In mock DB, we can fetch from localStorage if we saved, otherwise return null
-      if (typeof window !== 'undefined') {
-        const summaries = JSON.parse(localStorage.getItem('dim_summaries') || '{}');
-        if (summaries[ideaId]) {
-          return { ideaId, summary: summaries[ideaId], generatedAt: new Date().toISOString() };
-        }
-      }
+      const summary = mockDB.getSummary(ideaId);
+      if (summary) return summary;
+
       // default fallbacks for default ideas
       if (ideaId === 'idea_1') {
         return {
@@ -217,11 +213,7 @@ export const ideasService = {
     };
 
     if (!isFirebaseConfigured) {
-      if (typeof window !== 'undefined') {
-        const summaries = JSON.parse(localStorage.getItem('dim_summaries') || '{}');
-        summaries[ideaId] = summaryText;
-        localStorage.setItem('dim_summaries', JSON.stringify(summaries));
-      }
+      mockDB.saveSummary(summaryData);
       return;
     }
 

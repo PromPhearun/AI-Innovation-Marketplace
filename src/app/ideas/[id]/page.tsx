@@ -192,7 +192,7 @@ export default function IdeaDetailsPage() {
       setVotes(data.votes || []);
       setComments(data.comments || []);
       setReviews(data.reviews || []);
-      setSummary(data.idea.aiSummary || null);
+      setSummary(data.summary?.summary || null);
     } catch (err) {
       console.error('Error fetching details:', err);
     } finally {

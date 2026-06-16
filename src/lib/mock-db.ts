@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { User, Idea, AIReview, Vote, Comment } from '@/types';
+import { User, Idea, AIReview, Vote, Comment, Summary } from '@/types';
 
 // Let's create an in-memory database for server-side fallback
 // and sync with localstorage on client-side.
@@ -9,6 +9,7 @@ class MockDB {
   private reviews: AIReview[] = [];
   private votes: Vote[] = [];
   private comments: Comment[] = [];
+  private summaries: Summary[] = [];
 
   constructor() {
     this.loadFromStorage();
@@ -37,6 +38,7 @@ class MockDB {
         this.reviews = JSON.parse(localStorage.getItem('dim_reviews') || '[]');
         this.votes = JSON.parse(localStorage.getItem('dim_votes') || '[]');
         this.comments = JSON.parse(localStorage.getItem('dim_comments') || '[]');
+        this.summaries = JSON.parse(localStorage.getItem('dim_summaries') || '[]');
 
         // If empty, initialize with some default data
         if (this.ideas.length === 0) {
@@ -61,6 +63,7 @@ class MockDB {
           this.reviews = data.reviews || [];
           this.votes = data.votes || [];
           this.comments = data.comments || [];
+          this.summaries = data.summaries || [];
         } else {
           // Initialize with defaults if file doesn't exist
           this.initializeDefaultData();
@@ -80,6 +83,7 @@ class MockDB {
         localStorage.setItem('dim_reviews', JSON.stringify(this.reviews));
         localStorage.setItem('dim_votes', JSON.stringify(this.votes));
         localStorage.setItem('dim_comments', JSON.stringify(this.comments));
+        localStorage.setItem('dim_summaries', JSON.stringify(this.summaries));
       } catch (e) {
         console.error('Error saving mock DB to localstorage:', e);
       }
@@ -97,6 +101,7 @@ class MockDB {
           reviews: this.reviews,
           votes: this.votes,
           comments: this.comments,
+          summaries: this.summaries,
         };
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
       } catch (e) {
@@ -421,6 +426,18 @@ class MockDB {
     this.comments.push(comment);
     this.saveToStorage();
     return comment;
+  }
+
+  getSummary(ideaId: string): Summary | undefined {
+    this.loadFromStorage();
+    return this.summaries.find(s => s.ideaId === ideaId);
+  }
+
+  saveSummary(summary: Summary): void {
+    this.loadFromStorage();
+    this.summaries = this.summaries.filter(s => s.ideaId !== summary.ideaId);
+    this.summaries.push(summary);
+    this.saveToStorage();
   }
 }
 
