@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedRating, setSelectedRating] = useState('All');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'mine'>('all');
 
   const fetchDashboardData = async () => {
@@ -48,40 +49,12 @@ export default function DashboardPage() {
     fetchDashboardData();
   }, []);
 
-  const handleVote = async (ideaId: string, value: 1 | -1) => {
-    if (!currentUser) return;
-    try {
-      const res = await fetch(`/api/ideas/${ideaId}/vote`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUser.id,
-        },
-        body: JSON.stringify({ vote: value }),
-      });
-
-      if (res.ok) {
-        // Refresh votes for this idea
-        const detailsRes = await fetch(`/api/ideas/${ideaId}`);
-        if (detailsRes.ok) {
-          const details = await detailsRes.json();
-          setAllVotes((prev) => ({
-            ...prev,
-            [ideaId]: details.votes || [],
-          }));
-        }
-      }
-    } catch (err) {
-      console.error('Error upvoting:', err);
-    }
-  };
-
   // Helper functions for vote computations
   const getVoteCounts = (ideaId: string) => {
     const votes = allVotes[ideaId] || [];
-    const score = votes.reduce((acc, v) => acc + v.vote, 0);
-    const userVote = currentUser ? votes.find((v) => v.userId === currentUser.id)?.vote : undefined;
-    return { score, userVote };
+    const totalVotes = votes.length;
+    const avgRating = totalVotes > 0 ? (votes.reduce((acc, v) => acc + v.vote, 0) / totalVotes).toFixed(1) : '0.0';
+    return { avgRating, totalVotes };
   };
 
   // Extract unique departments and categories for filter dropdowns
@@ -111,6 +84,24 @@ export default function DashboardPage() {
     // Status match
     const matchesStatus = selectedStatus === 'All' || idea.status === selectedStatus;
 
+    // Rating match
+    let matchesRating = true;
+    if (selectedRating !== 'All') {
+      const { avgRating } = getVoteCounts(idea.id);
+      const numericAvg = parseFloat(avgRating);
+      if (selectedRating === '5') {
+        matchesRating = numericAvg === 5.0;
+      } else if (selectedRating === '4') {
+        matchesRating = numericAvg >= 4.0 && numericAvg < 5.0;
+      } else if (selectedRating === '3') {
+        matchesRating = numericAvg >= 3.0 && numericAvg < 4.0;
+      } else if (selectedRating === '2') {
+        matchesRating = numericAvg >= 2.0 && numericAvg < 3.0;
+      } else if (selectedRating === '1') {
+        matchesRating = numericAvg >= 1.0 && numericAvg < 2.0;
+      }
+    }
+
     // Role-based tab match
     let matchesTab = true;
     if (activeTab === 'mine') {
@@ -119,7 +110,7 @@ export default function DashboardPage() {
       matchesTab = idea.status === 'submitted' || idea.status === 'under_review';
     }
 
-    return matchesSearch && matchesDept && matchesCategory && matchesStatus && matchesTab;
+    return matchesSearch && matchesDept && matchesCategory && matchesStatus && matchesRating && matchesTab;
   });
 
   // KPI Calculations
@@ -327,7 +318,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Filtering Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             {/* Department */}
             <div className="space-y-1.5">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Department</label>
@@ -375,6 +366,23 @@ export default function DashboardPage() {
                 <option value="rejected">Rejected</option>
               </select>
             </div>
+
+            {/* Star Rating */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Rating</label>
+              <select
+                value={selectedRating}
+                onChange={(e) => setSelectedRating(e.target.value)}
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+              >
+                <option value="All">All Ratings</option>
+                <option value="5">5 Stars</option>
+                <option value="4">4 Stars (4.0 to 4.9)</option>
+                <option value="3">3 Stars (3.0 to 3.9)</option>
+                <option value="2">2 Stars (2.0 to 2.9)</option>
+                <option value="1">1 Stars (1.0 to 1.9)</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -420,6 +428,7 @@ export default function DashboardPage() {
                 setSelectedDept('All');
                 setSelectedCategory('All');
                 setSelectedStatus('All');
+                setSelectedRating('All');
                 setActiveTab('all');
               }}
               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold hover:dark:bg-slate-800 hover:dark:text-white transition-all"
@@ -430,43 +439,23 @@ export default function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredIdeas.map((idea) => {
-              const { score, userVote } = getVoteCounts(idea.id);
+              const { avgRating, totalVotes } = getVoteCounts(idea.id);
               return (
                 <div
                   key={idea.id}
                   className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80 p-6 rounded-2xl shadow-sm hover:shadow-md hover:shadow-indigo-500/[0.02] flex gap-5 transition-all duration-200 group relative"
                 >
-                  {/* Left Side: Vote Selector */}
-                  <div className="flex flex-col items-center gap-1.5 self-start bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/50 p-2.5 rounded-xl">
-                    <button
-                      onClick={() => handleVote(idea.id, 1)}
-                      className={`p-1 rounded-lg transition-colors ${
-                        userVote === 1
-                          ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10'
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
-                      title="Upvote Idea"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-                      </svg>
-                    </button>
-                    <span className={`text-sm font-bold ${score >= 0 ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
-                      {score}
+                  {/* Left Side: Rating Badge */}
+                  <div className="flex flex-col items-center justify-center self-start bg-amber-500/[0.03] dark:bg-amber-500/[0.01] border border-amber-500/10 dark:border-amber-500/5 p-3 rounded-2xl min-w-[76px] shadow-inner">
+                    <svg className="w-7 h-7 text-amber-500 dark:text-amber-400 drop-shadow-sm" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                    </svg>
+                    <span className="text-base font-black text-slate-800 dark:text-slate-100 mt-1">
+                      {avgRating}
                     </span>
-                    <button
-                      onClick={() => handleVote(idea.id, -1)}
-                      className={`p-1 rounded-lg transition-colors ${
-                        userVote === -1
-                          ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10'
-                          : 'text-slate-400 dark:text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
-                      title="Downvote Idea"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+                    <span className="text-[9px] font-extrabold text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap">
+                      {totalVotes} {totalVotes === 1 ? 'rating' : 'ratings'}
+                    </span>
                   </div>
 
                   {/* Right Side: Idea details */}
