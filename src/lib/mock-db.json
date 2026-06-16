@@ -93,6 +93,20 @@
       "analysis": "Highly original application tailored perfectly to Deriv's frequent webinar campaigns."
     },
     {
+      "id": "rev_1_s",
+      "ideaId": "idea_1",
+      "agentType": "security",
+      "score": 9,
+      "analysis": "Fully meets corporate compliance requirements. Standard token storage and secure channel communications prevent unauthorized access during campaign orchestration."
+    },
+    {
+      "id": "rev_1_c",
+      "ideaId": "idea_1",
+      "agentType": "customerImpact",
+      "score": 9,
+      "analysis": "Empowers smoother user communication flow. Generating timely webinar invites and summaries directly enhances client experience and retention."
+    },
+    {
       "id": "rev_2_b",
       "ideaId": "idea_2",
       "agentType": "business",
@@ -121,6 +135,20 @@
       "analysis": "Transformational regulatory risk modeling using agentic news screening."
     },
     {
+      "id": "rev_2_s",
+      "ideaId": "idea_2",
+      "agentType": "security",
+      "score": 9,
+      "analysis": "Directly reinforces security. Safeguards partner evaluation processes and runs real-time behavior pattern scans safely within secure networks."
+    },
+    {
+      "id": "rev_2_c",
+      "ideaId": "idea_2",
+      "agentType": "customerImpact",
+      "score": 9,
+      "analysis": "Builds platform trust and integrity. Demonstrating stringent partner vetting directly improves customer confidence and long-term brand equity."
+    },
+    {
       "id": "rev_3_b",
       "ideaId": "idea_3",
       "agentType": "business",
@@ -147,33 +175,47 @@
       "agentType": "innovation",
       "score": 8,
       "analysis": "Good application of predictive modeling to CRM data, though similar systems are standard in mature marketing suites."
+    },
+    {
+      "id": "rev_3_s",
+      "ideaId": "idea_3",
+      "agentType": "security",
+      "score": 8,
+      "analysis": "Complies with customer privacy and data localization frameworks. Strictly anonymizes client CRM profiles before predictive clustering passes."
+    },
+    {
+      "id": "rev_3_c",
+      "ideaId": "idea_3",
+      "agentType": "customerImpact",
+      "score": 8,
+      "analysis": "Provides highly relevant, custom experiences for platform users, avoiding generic marketing spam and maximizing adoption rates."
     }
   ],
   "votes": [
     {
       "ideaId": "idea_1",
       "userId": "user_1",
-      "vote": 1
+      "vote": 5
     },
     {
       "ideaId": "idea_2",
       "userId": "user_2",
-      "vote": 1
+      "vote": 5
     },
     {
       "ideaId": "idea_3",
       "userId": "user_1",
-      "vote": 1
-    },
-    {
-      "ideaId": "idea_1",
-      "userId": "user_3",
-      "vote": 1
+      "vote": 3
     },
     {
       "ideaId": "idea_3",
       "userId": "user_3",
-      "vote": 1
+      "vote": 5
+    },
+    {
+      "ideaId": "idea_1",
+      "userId": "user_3",
+      "vote": 4
     }
   ],
   "comments": [

@@ -177,6 +177,7 @@ export default function IdeaDetailsPage() {
   const [summary, setSummary] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
 
   const fetchIdeaDetails = useCallback(async () => {
     try {
@@ -205,7 +206,7 @@ export default function IdeaDetailsPage() {
     }
   }, [id, fetchIdeaDetails]);
 
-  const handleVote = async (value: 1 | -1) => {
+  const handleVote = async (value: number) => {
     if (!currentUser || !idea || isVoting) return;
     try {
       setIsVoting(true);
@@ -307,7 +308,8 @@ export default function IdeaDetailsPage() {
   };
 
   // Vote calculations
-  const voteScore = votes.reduce((acc, v) => acc + v.vote, 0);
+  const totalVotes = votes.length;
+  const avgRating = totalVotes > 0 ? (votes.reduce((acc, v) => acc + v.vote, 0) / totalVotes).toFixed(1) : '0.0';
   const userVote = currentUser ? votes.find((v) => v.userId === currentUser.id)?.vote : undefined;
 
   // Circular progress calculations for Innovation Score
@@ -369,13 +371,17 @@ export default function IdeaDetailsPage() {
   const getAgentLabel = (agent: string) => {
     switch (agent) {
       case 'business':
-        return 'Business Viability Agent';
+        return 'Chief Financial Officer (CFO)';
       case 'feasibility':
-        return 'Technical Feasibility Agent';
+        return 'Chief Technology Officer (CTO)';
       case 'employeeImpact':
-        return 'Employee Satisfaction Council';
+        return 'Chief People Officer (CPO)';
       case 'innovation':
-        return 'Chief Innovation Officer';
+        return 'Chief Innovation Officer (CIO)';
+      case 'security':
+        return 'Chief Information Security Officer (CISO)';
+      case 'customerImpact':
+        return 'Chief Customer Officer (CCO)';
       default:
         return agent;
     }
@@ -402,10 +408,28 @@ export default function IdeaDetailsPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
         );
-      default:
+      case 'innovation':
         return (
           <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        );
+      case 'security':
+        return (
+          <svg className="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        );
+      case 'customerImpact':
+        return (
+          <svg className="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      default:
+        return (
+          <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         );
     }
@@ -457,40 +481,46 @@ export default function IdeaDetailsPage() {
           </div>
 
           {/* Voting Box */}
-          <div className="flex items-center gap-3.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl self-start lg:self-auto">
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-2">Vote on Draft</span>
+          <div className="flex items-center gap-3.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-3 rounded-2xl self-start lg:self-auto shadow-sm">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-bold px-2 uppercase tracking-wide">Rate Draft</span>
             <div className={`flex items-center gap-1 ${isVoting ? 'opacity-60 cursor-not-allowed pointer-events-none' : ''}`}>
-              <button
-                onClick={() => handleVote(1)}
-                disabled={isVoting}
-                className={`p-1.5 rounded-xl transition-colors ${
-                  userVote === 1
-                    ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent'
-                } ${isVoting ? 'cursor-not-allowed' : ''}`}
-                title="Upvote Idea"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" />
-                </svg>
-              </button>
-              <span className="text-sm font-bold text-slate-800 dark:text-slate-200 px-1.5 min-w-[20px] text-center">
-                {voteScore}
+              {[1, 2, 3, 4, 5].map((star) => {
+                const isLit = hoveredStar !== null ? star <= hoveredStar : (userVote ?? 0) >= star;
+                return (
+                  <button
+                    key={star}
+                    onClick={() => handleVote(star)}
+                    onMouseEnter={() => setHoveredStar(star)}
+                    onMouseLeave={() => setHoveredStar(null)}
+                    disabled={isVoting}
+                    className={`p-1 transition-all transform hover:scale-125 duration-150 ${
+                      isLit
+                        ? 'text-amber-500 dark:text-amber-400 scale-110'
+                        : 'text-slate-300 dark:text-slate-700 hover:text-amber-400'
+                    }`}
+                    title={`Rate ${star} Stars`}
+                  >
+                    <svg
+                      className="w-6 h-6 stroke-amber-500 dark:stroke-amber-400"
+                      fill={isLit ? 'currentColor' : 'none'}
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                      />
+                    </svg>
+                  </button>
+                );
+              })}
+              <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200 pl-2 pr-1">
+                {avgRating}
               </span>
-              <button
-                onClick={() => handleVote(-1)}
-                disabled={isVoting}
-                className={`p-1.5 rounded-xl transition-colors ${
-                  userVote === -1
-                    ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20'
-                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent'
-                } ${isVoting ? 'cursor-not-allowed' : ''}`}
-                title="Downvote Idea"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                ({totalVotes} {totalVotes === 1 ? 'rating' : 'ratings'})
+              </span>
             </div>
           </div>
         </div>

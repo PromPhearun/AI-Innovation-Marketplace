@@ -23,7 +23,7 @@ export interface Idea {
 export interface AIReview {
   id: string;
   ideaId: string;
-  agentType: 'business' | 'feasibility' | 'employeeImpact' | 'innovation';
+  agentType: 'business' | 'feasibility' | 'employeeImpact' | 'innovation' | 'security' | 'customerImpact';
   score: number;
   analysis: string;
 }
@@ -31,7 +31,7 @@ export interface AIReview {
 export interface Vote {
   ideaId: string;
   userId: string;
-  vote: 1 | -1;
+  vote: number; // star rating 1-5
 }
 
 export interface Comment {

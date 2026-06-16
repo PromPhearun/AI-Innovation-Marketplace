@@ -31,7 +31,7 @@ export const commentSchema = z.object({
 
 export const voteSchema = z.object({
   ideaId: z.string().min(1, 'Idea ID is required'),
-  vote: z.union([z.literal(1), z.literal(-1)]),
+  vote: z.number().int().min(1, 'Rating must be at least 1 star').max(5, 'Rating cannot exceed 5 stars'),
 });
 
 export const userAuthSchema = z.object({
