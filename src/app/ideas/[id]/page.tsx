@@ -6,6 +6,151 @@ import { useUser } from '@/context/user-context';
 import { useParams, useRouter } from 'next/navigation';
 import { Idea, Vote, Comment, AIReview } from '@/types';
 
+interface ParsedSections {
+  title?: string;
+  problemStatement?: string;
+  proposedSolution?: string;
+  expectedBenefits?: string;
+  implementationRecommendation?: string;
+  unparsed: string[];
+}
+
+function parseSummary(text: string): ParsedSections {
+  const sections: ParsedSections = { unparsed: [] };
+  const lines = text.split('\n');
+  let currentKey: 'title' | 'problemStatement' | 'proposedSolution' | 'expectedBenefits' | 'implementationRecommendation' | null = null;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (line.startsWith('###')) {
+      sections.title = line.replace(/^###\s*/, '').replace(/\*\*/g, '').trim();
+      currentKey = null;
+      continue;
+    }
+
+    const problemMatch = line.match(/^\*\*Problem Statement:\*\*\s*(.*)/i) || line.match(/^Problem Statement:\s*(.*)/i);
+    if (problemMatch) {
+      sections.problemStatement = problemMatch[1].trim();
+      currentKey = 'problemStatement';
+      continue;
+    }
+
+    const solutionMatch = line.match(/^\*\*Proposed Solution:\*\*\s*(.*)/i) || line.match(/^Proposed Solution:\s*(.*)/i);
+    if (solutionMatch) {
+      sections.proposedSolution = solutionMatch[1].trim();
+      currentKey = 'proposedSolution';
+      continue;
+    }
+
+    const benefitsMatch = line.match(/^\*\*Expected Benefits:\*\*\s*(.*)/i) || line.match(/^Expected Benefits:\s*(.*)/i);
+    if (benefitsMatch) {
+      sections.expectedBenefits = benefitsMatch[1].trim();
+      currentKey = 'expectedBenefits';
+      continue;
+    }
+
+    const recommendationMatch = line.match(/^\*\*Implementation Recommendation:\*\*\s*(.*)/i) || line.match(/^Implementation Recommendation:\s*(.*)/i);
+    if (recommendationMatch) {
+      sections.implementationRecommendation = recommendationMatch[1].trim();
+      currentKey = 'implementationRecommendation';
+      continue;
+    }
+
+    if (currentKey) {
+      sections[currentKey] = (sections[currentKey] ? sections[currentKey] + ' ' : '') + line.replace(/^\s*\*\s*/, '').trim();
+    } else {
+      sections.unparsed.push(line);
+    }
+  }
+
+  return sections;
+}
+
+function FormattedExecutiveSummary({ text }: { text: string }) {
+  const sections = parseSummary(text);
+
+  return (
+    <div className="space-y-4">
+      {sections.title && (
+        <h4 className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          {sections.title}
+        </h4>
+      )}
+
+      <div className="grid grid-cols-1 gap-4">
+        {sections.problemStatement && (
+          <div className="p-4 rounded-xl border bg-rose-50/40 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/20 space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-bold text-xs uppercase tracking-wider">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Problem Statement
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
+              {sections.problemStatement}
+            </p>
+          </div>
+        )}
+
+        {sections.proposedSolution && (
+          <div className="p-4 rounded-xl border bg-indigo-50/40 dark:bg-indigo-950/10 border-indigo-100 dark:border-indigo-900/20 space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Proposed Solution
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
+              {sections.proposedSolution}
+            </p>
+          </div>
+        )}
+
+        {sections.expectedBenefits && (
+          <div className="p-4 rounded-xl border bg-emerald-50/40 dark:bg-emerald-950/10 border-emerald-100 dark:border-emerald-900/20 space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Expected Benefits
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
+              {sections.expectedBenefits}
+            </p>
+          </div>
+        )}
+
+        {sections.implementationRecommendation && (
+          <div className="p-4 rounded-xl border bg-sky-50/40 dark:bg-sky-950/10 border-sky-100 dark:border-sky-900/20 space-y-1.5 shadow-sm">
+            <div className="flex items-center gap-2 text-sky-700 dark:text-sky-400 font-bold text-xs uppercase tracking-wider">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z" />
+              </svg>
+              Implementation Recommendation
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 text-xs leading-relaxed font-medium">
+              {sections.implementationRecommendation}
+            </p>
+          </div>
+        )}
+
+        {sections.unparsed.length > 0 && (
+          <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-xs leading-relaxed space-y-1">
+            {sections.unparsed.map((line, idx) => (
+              <p key={idx}>{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function IdeaDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -373,8 +518,8 @@ export default function IdeaDetailsPage() {
                 </div>
               ) : summary ? (
                 <div className="bg-gradient-to-br from-indigo-500/5 to-violet-500/5 p-5 rounded-xl border border-indigo-500/10 text-slate-700 dark:text-slate-300 text-xs leading-relaxed space-y-3 shadow-inner">
-                  <p className="whitespace-pre-line">{summary}</p>
-                  <p className="text-[10px] text-slate-500 italic">Generated instantly by Enterprise LLM Consensus Agent.</p>
+                  <FormattedExecutiveSummary text={summary} />
+                  <p className="text-[10px] text-slate-500 italic pt-2 border-t border-indigo-500/10">Generated instantly by Enterprise LLM Consensus Agent.</p>
                 </div>
               ) : (
                 <div className="border border-dashed border-slate-200 dark:border-slate-800 p-8 text-center rounded-xl">
@@ -412,8 +557,7 @@ export default function IdeaDetailsPage() {
                       </p>
                     </div>
 
-                    <div className="border-t border-slate-100 dark:border-slate-900/60 pt-3 mt-4 flex items-center justify-between text-[10px] text-slate-500 font-semibold">
-                      <span>Model: LiteLLM Router</span>
+                    <div className="border-t border-slate-100 dark:border-slate-900/60 pt-3 mt-4 flex items-center justify-end text-[10px] text-slate-500 font-semibold">
                       <span>Verified Evaluation Protocol</span>
                     </div>
                   </div>
