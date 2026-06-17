@@ -18,6 +18,7 @@ export interface Idea {
   expectedBenefits?: string;
   createdBy: string;
   createdAt: string;
+  votes?: Vote[];
 }
 
 export interface AIReview {

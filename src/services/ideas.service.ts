@@ -101,6 +101,24 @@ export const ideasService = {
     }
   },
 
+  async getAllVotes(): Promise<Vote[]> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getAllVotes();
+    }
+
+    try {
+      const querySnapshot = await getDocs(collection(db, 'votes'));
+      const votes: Vote[] = [];
+      querySnapshot.forEach((doc) => {
+        votes.push(doc.data() as Vote);
+      });
+      return votes;
+    } catch (error) {
+      console.error('Error fetching all votes from Firestore:', error);
+      return mockDB.getAllVotes();
+    }
+  },
+
   async addVote(vote: Vote): Promise<void> {
     if (!isFirebaseConfigured) {
       mockDB.addVote(vote);

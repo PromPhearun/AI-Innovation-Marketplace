@@ -7,8 +7,17 @@ import { Idea, AIReview } from '@/types';
 
 export async function GET() {
   try {
-    const ideas = await ideasService.getIdeas();
-    return NextResponse.json(ideas);
+    const [ideas, votes] = await Promise.all([
+      ideasService.getIdeas(),
+      ideasService.getAllVotes()
+    ]);
+
+    const ideasWithVotes = ideas.map((idea) => ({
+      ...idea,
+      votes: votes.filter((v) => v.ideaId === idea.id),
+    }));
+
+    return NextResponse.json(ideasWithVotes);
   } catch (error) {
     console.error('API Error in GET /api/ideas:', error);
     return NextResponse.json(

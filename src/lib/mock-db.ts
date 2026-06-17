@@ -402,6 +402,11 @@ class MockDB {
     return this.votes.filter(v => v.ideaId === ideaId);
   }
 
+  getAllVotes(): Vote[] {
+    this.loadFromStorage();
+    return this.votes;
+  }
+
   addVote(vote: Vote) {
     this.loadFromStorage();
     this.votes = this.votes.filter(v => !(v.ideaId === vote.ideaId && v.userId === vote.userId));

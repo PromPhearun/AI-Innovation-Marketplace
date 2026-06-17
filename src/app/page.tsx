@@ -29,13 +29,26 @@ export default function DashboardPage() {
       const data: Idea[] = await res.json();
       setIdeas(data);
 
-      // Fetch votes and details for each idea
       const votesMap: { [ideaId: string]: Vote[] } = {};
+      let needsFallback = false;
+
       for (const idea of data) {
-        const detailsRes = await fetch(`/api/ideas/${idea.id}`);
-        if (detailsRes.ok) {
-          const details = await detailsRes.json();
-          votesMap[idea.id] = details.votes || [];
+        if (idea.votes) {
+          votesMap[idea.id] = idea.votes;
+        } else {
+          needsFallback = true;
+          break;
+        }
+      }
+
+      if (needsFallback) {
+        // Fallback to individual fetches if API didn't return votes
+        for (const idea of data) {
+          const detailsRes = await fetch(`/api/ideas/${idea.id}`);
+          if (detailsRes.ok) {
+            const details = await detailsRes.json();
+            votesMap[idea.id] = details.votes || [];
+          }
         }
       }
       setAllVotes(votesMap);
