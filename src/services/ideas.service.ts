@@ -1,6 +1,6 @@
 import { isFirebaseConfigured, db } from '@/lib/firebase/config';
 import { mockDB } from '@/lib/mock-db';
-import { Idea, Vote, Comment, Summary } from '@/types';
+import { Idea, Vote, Comment, Summary, PRD, Roadmap, RoadmapPhase, ClickUpSync } from '@/types';
 import {
   doc,
   getDoc,
@@ -240,6 +240,120 @@ export const ideasService = {
       await setDoc(docRef, summaryData);
     } catch (error) {
       console.error('Error saving summary to Firestore:', error);
+    }
+  },
+
+  // AI PRD API
+  async getPRD(ideaId: string): Promise<PRD | null> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getPRD(ideaId) || null;
+    }
+
+    try {
+      const docRef = doc(db, 'prds', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as PRD;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching PRD from Firestore:', error);
+      return mockDB.getPRD(ideaId) || null;
+    }
+  },
+
+  async savePRD(ideaId: string, markdown: string): Promise<void> {
+    const prdData: PRD = {
+      ideaId,
+      markdown,
+      generatedAt: new Date().toISOString()
+    };
+
+    if (!isFirebaseConfigured) {
+      mockDB.savePRD(prdData);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'prds', ideaId);
+      await setDoc(docRef, prdData);
+    } catch (error) {
+      console.error('Error saving PRD to Firestore:', error);
+      mockDB.savePRD(prdData);
+    }
+  },
+
+  // AI Roadmap API
+  async getRoadmap(ideaId: string): Promise<Roadmap | null> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getRoadmap(ideaId) || null;
+    }
+
+    try {
+      const docRef = doc(db, 'roadmaps', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as Roadmap;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching Roadmap from Firestore:', error);
+      return mockDB.getRoadmap(ideaId) || null;
+    }
+  },
+
+  async saveRoadmap(ideaId: string, phases: RoadmapPhase[]): Promise<void> {
+    const roadmapData: Roadmap = {
+      ideaId,
+      phases,
+      generatedAt: new Date().toISOString()
+    };
+
+    if (!isFirebaseConfigured) {
+      mockDB.saveRoadmap(roadmapData);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'roadmaps', ideaId);
+      await setDoc(docRef, roadmapData);
+    } catch (error) {
+      console.error('Error saving Roadmap to Firestore:', error);
+      mockDB.saveRoadmap(roadmapData);
+    }
+  },
+
+  // ClickUp Sync API
+  async getClickUpSync(ideaId: string): Promise<ClickUpSync | null> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getClickUpSync(ideaId) || null;
+    }
+
+    try {
+      const docRef = doc(db, 'clickups', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as ClickUpSync;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching ClickUpSync from Firestore:', error);
+      return mockDB.getClickUpSync(ideaId) || null;
+    }
+  },
+
+  async saveClickUpSync(ideaId: string, clickup: ClickUpSync): Promise<void> {
+    if (!isFirebaseConfigured) {
+      mockDB.saveClickUpSync(clickup);
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'clickups', ideaId);
+      await setDoc(docRef, clickup);
+    } catch (error) {
+      console.error('Error saving ClickUpSync to Firestore:', error);
+      mockDB.saveClickUpSync(clickup);
     }
   }
 };

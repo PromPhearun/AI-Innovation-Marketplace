@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { User, Idea, AIReview, Vote, Comment, Summary } from '@/types';
+import { User, Idea, AIReview, Vote, Comment, Summary, PRD, Roadmap, ClickUpSync } from '@/types';
 
 // Let's create an in-memory database for server-side fallback
 // and sync with localstorage on client-side.
@@ -10,6 +10,9 @@ class MockDB {
   private votes: Vote[] = [];
   private comments: Comment[] = [];
   private summaries: Summary[] = [];
+  private prds: PRD[] = [];
+  private roadmaps: Roadmap[] = [];
+  private clickups: ClickUpSync[] = [];
 
   constructor() {
     this.loadFromStorage();
@@ -39,6 +42,9 @@ class MockDB {
         this.votes = JSON.parse(localStorage.getItem('dim_votes') || '[]');
         this.comments = JSON.parse(localStorage.getItem('dim_comments') || '[]');
         this.summaries = JSON.parse(localStorage.getItem('dim_summaries') || '[]');
+        this.prds = JSON.parse(localStorage.getItem('dim_prds') || '[]');
+        this.roadmaps = JSON.parse(localStorage.getItem('dim_roadmaps') || '[]');
+        this.clickups = JSON.parse(localStorage.getItem('dim_clickups') || '[]');
 
         // If empty, initialize with some default data
         if (this.ideas.length === 0) {
@@ -64,6 +70,9 @@ class MockDB {
           this.votes = data.votes || [];
           this.comments = data.comments || [];
           this.summaries = data.summaries || [];
+          this.prds = data.prds || [];
+          this.roadmaps = data.roadmaps || [];
+          this.clickups = data.clickups || [];
         } else {
           // Initialize with defaults if file doesn't exist
           this.initializeDefaultData();
@@ -84,6 +93,9 @@ class MockDB {
         localStorage.setItem('dim_votes', JSON.stringify(this.votes));
         localStorage.setItem('dim_comments', JSON.stringify(this.comments));
         localStorage.setItem('dim_summaries', JSON.stringify(this.summaries));
+        localStorage.setItem('dim_prds', JSON.stringify(this.prds));
+        localStorage.setItem('dim_roadmaps', JSON.stringify(this.roadmaps));
+        localStorage.setItem('dim_clickups', JSON.stringify(this.clickups));
       } catch (e) {
         console.error('Error saving mock DB to localstorage:', e);
       }
@@ -102,6 +114,9 @@ class MockDB {
           votes: this.votes,
           comments: this.comments,
           summaries: this.summaries,
+          prds: this.prds,
+          roadmaps: this.roadmaps,
+          clickups: this.clickups,
         };
         fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
       } catch (e) {
@@ -442,6 +457,42 @@ class MockDB {
     this.loadFromStorage();
     this.summaries = this.summaries.filter(s => s.ideaId !== summary.ideaId);
     this.summaries.push(summary);
+    this.saveToStorage();
+  }
+
+  getPRD(ideaId: string): PRD | undefined {
+    this.loadFromStorage();
+    return this.prds.find(p => p.ideaId === ideaId);
+  }
+
+  savePRD(prd: PRD): void {
+    this.loadFromStorage();
+    this.prds = this.prds.filter(p => p.ideaId !== prd.ideaId);
+    this.prds.push(prd);
+    this.saveToStorage();
+  }
+
+  getRoadmap(ideaId: string): Roadmap | undefined {
+    this.loadFromStorage();
+    return this.roadmaps.find(r => r.ideaId === ideaId);
+  }
+
+  saveRoadmap(roadmap: Roadmap): void {
+    this.loadFromStorage();
+    this.roadmaps = this.roadmaps.filter(r => r.ideaId !== roadmap.ideaId);
+    this.roadmaps.push(roadmap);
+    this.saveToStorage();
+  }
+
+  getClickUpSync(ideaId: string): ClickUpSync | undefined {
+    this.loadFromStorage();
+    return this.clickups.find(c => c.ideaId === ideaId);
+  }
+
+  saveClickUpSync(clickup: ClickUpSync): void {
+    this.loadFromStorage();
+    this.clickups = this.clickups.filter(c => c.ideaId !== clickup.ideaId);
+    this.clickups.push(clickup);
     this.saveToStorage();
   }
 }

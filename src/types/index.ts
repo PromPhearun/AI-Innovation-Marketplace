@@ -54,3 +54,38 @@ export interface Embedding {
   ideaId: string;
   embedding: number[];
 }
+
+export interface PRD {
+  ideaId: string;
+  markdown: string;
+  generatedAt: string;
+}
+
+export interface RoadmapPhase {
+  phaseNumber: number;
+  title: string;
+  weeks: string;
+  deliverables: string[];
+  tasks: string[];
+  ownerDepartment: string;
+}
+
+export interface Roadmap {
+  ideaId: string;
+  phases: RoadmapPhase[];
+  generatedAt: string;
+}
+
+export interface ClickUpTask {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface ClickUpSync {
+  ideaId: string;
+  ticketKey: string;
+  ticketUrl: string;
+  syncedAt: string;
+  subtasks: ClickUpTask[];
+}

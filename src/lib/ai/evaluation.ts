@@ -1,5 +1,5 @@
 import { openai, MODEL_NAME } from './client';
-import { AIReview } from '@/types';
+import { AIReview, RoadmapPhase } from '@/types';
 
 export interface EvaluationResult {
   reviews: Omit<AIReview, 'id' | 'ideaId'>[];
@@ -259,5 +259,203 @@ Keep it highly technical, direct, and concise (total length under 250 words). Do
 **Expected Benefits:** Estimated 50% to 75% reduction in cycle time, elimination of human errors in documentation, and highly transparent audit logs.
 
 **Implementation Recommendation:** Form a cross-functional workgroup to deploy a mini-MVP within one department over a 4-week sprint.`;
+  }
+}
+
+// AI Product Requirements Document (PRD) Generation
+export async function generatePRD(
+  title: string,
+  description: string,
+  expectedBenefits?: string,
+  reviews?: AIReview[]
+): Promise<string> {
+  const reviewsContext = reviews
+    ? reviews.map(r => `Review [${r.agentType}]: Score ${r.score}/10 - ${r.analysis}`).join('\n')
+    : 'No scores yet';
+
+  const prompt = `You are a Principal Product Manager and Technical Architect.
+Write a comprehensive Product Requirements Document (PRD) in professional markdown format for:
+
+Title: "${title}"
+Description: "${description}"
+Expected Benefits: "${expectedBenefits || 'Not specified'}"
+
+AI Agent Reviews Context:
+${reviewsContext}
+
+The PRD MUST have these headers:
+# Product Requirements Document (PRD): ${title}
+
+## 1. Executive Overview & Goals
+Provide a clear high-level summary of the goals, the targeted users, and business impact.
+
+## 2. Scope & Core Features
+- Feature 1 (with bullet description)
+- Feature 2 (with bullet description)
+- Feature 3 (with bullet description)
+
+## 3. User Stories & Workflows
+List at least 3 concrete user stories (As a [User Role], I want [Feature] so that [Benefit]).
+
+## 4. High-Level Technical Architecture
+Outline the technical stack, core data flows, and external integrations.
+
+## 5. Security & Compliance Specifications
+Specifically address input validation, encryption (AES-256-GCM, TLS 1.3), access controls (RBAC, HttpOnly cookies), audit logs, and OWASP compliance.
+
+## 6. Key Success Metrics & KPIs
+List at least 3 measurable indicators of success.
+
+Format the document elegantly and detailedly in Markdown. Avoid conversational text.`;
+
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('API key is missing, using mock PRD.');
+    }
+
+    const response = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an elite product manager. You write complete, highly detailed and professional PRDs in markdown.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      temperature: 0.3,
+    });
+
+    return response.choices[0]?.message?.content || 'No PRD generated.';
+  } catch (error) {
+    console.error('Error generating PRD:', error);
+    return `# Product Requirements Document (PRD): ${title}
+
+## 1. Executive Overview & Goals
+The objective of **${title}** is to address existing operational inefficiencies in the current manual workflow. By deploying this automated system, we aim to streamline task execution, reduce human error, and achieve rapid turnarounds.
+
+## 2. Scope & Core Features
+*   **Automation Pipeline:** Core processing engine that takes inputs, runs validations, and triggers downstream actions automatically.
+*   **Analytics Dashboard:** Visual tracking dashboard displaying real-time metrics, system health, and execution queues.
+*   **Enterprise Administration Portal:** Role-Based Access Control (RBAC) panel to manage users, configure automation parameters, and review system logs.
+
+## 3. User Stories & Workflows
+*   **User Story 1:** *As an operational manager*, I want to monitor active tasks in real-time so that I can intervene immediately if any processing bottlenecks occur.
+*   **User Story 2:** *As an employee*, I want to submit automated execution requests through a secure dashboard so that I do not have to perform repetitive manual entries.
+*   **User Story 3:** *As an auditor*, I want to view a tamper-proof execution log so that we are fully compliant with external audit requirements.
+
+## 4. High-Level Technical Architecture
+The system utilizes a secure Next.js frontend with TailwindCSS, connected to serverless API endpoints. The database stores transaction records and metrics, with an internal message queue (or serverless function triggers) managing automated processes.
+
+## 5. Security & Compliance Specifications
+*   **Input Sanitization:** All incoming requests are validated against strict schemas to prevent XSS and path traversal.
+*   **Data Protection:** Data at rest is encrypted using AES-256-GCM, and transit is strictly restricted to TLS 1.3.
+*   **Access Management:** Admin panels require Multi-Factor Authentication (MFA), and session cookies are configured with HttpOnly and SameSite=Strict properties.
+*   **Compliance:** Built in accordance with OWASP Top 10 guidelines and fully compliant with general corporate audit frameworks.
+
+## 6. Key Success Metrics & KPIs
+*   **Processing Speed:** Achieve a 60%+ reduction in manual task duration.
+*   **Adoption Rate:** 85%+ active monthly usage among the core department within 30 days of launch.
+*   **Accuracy Target:** 99.9% error-free automated executions under typical production loads.`;
+  }
+}
+
+// AI Roadmap Generation
+export async function generateRoadmap(
+  title: string,
+  description: string,
+  expectedBenefits?: string
+): Promise<RoadmapPhase[]> {
+  const prompt = `You are a Technical Project Manager.
+Create a detailed 4-phase visual implementation timeline (Weeks 1 to 6) for the following innovation project:
+
+Title: "${title}"
+Description: "${description}"
+Expected Benefits: "${expectedBenefits || 'N/A'}"
+
+Generate a structured JSON output representing the 4 sequential phases.
+Each phase object MUST match this schema:
+{
+  "phaseNumber": number,
+  "title": "string",
+  "weeks": "string (e.g. 'Weeks 1-2')",
+  "deliverables": ["string", "string"],
+  "tasks": ["string", "string"],
+  "ownerDepartment": "string (e.g., 'Engineering', 'Security', 'Product', 'DevOps')"
+}
+
+Respond strictly with a JSON array of these 4 phases. Do not include any other markdown formatting outside of JSON.`;
+
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('API key is missing, using mock roadmap.');
+    }
+
+    const response = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a technical project manager. You output strict JSON arrays representing implementation roadmaps.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.2,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Empty AI response.');
+    }
+
+    const result = JSON.parse(content);
+    // Support either a direct array or { "phases": [...] }
+    const phases = Array.isArray(result) ? result : (result.phases || result.roadmap || []);
+    if (phases.length > 0) {
+      return phases as RoadmapPhase[];
+    }
+    throw new Error('Invalid array structure from AI.');
+  } catch (error) {
+    console.error('Error generating roadmap:', error);
+    return [
+      {
+        phaseNumber: 1,
+        title: "Requirement Gathering & Architecture Design",
+        weeks: "Week 1",
+        deliverables: ["Product Specification Blueprint", "API Schema Agreements", "Threat Model and Risk Assessment"],
+        tasks: ["Hold discovery workshop with lead stakeholders", "Draft database models and system communication layout", "Configure initial secure environments and codebase repositories"],
+        ownerDepartment: "Product & Architecture"
+      },
+      {
+        phaseNumber: 2,
+        title: "Core Service & Database Implementation",
+        weeks: "Weeks 2-3",
+        deliverables: ["Functional REST/GraphQL APIs", "Secure Schema Validation Layer", "Relational Database migrations"],
+        tasks: ["Build core service logic and internal helper utilities", "Enforce input filters and parameter security checks", "Write comprehensive unit tests for core operational models"],
+        ownerDepartment: "Engineering"
+      },
+      {
+        phaseNumber: 3,
+        title: "Frontend Dashboard & Integration",
+        weeks: "Weeks 4-5",
+        deliverables: ["Fully responsive Tailwind Web UI", "State management hooks", "Mock third-party platform bindings"],
+        tasks: ["Code responsive dashboard tabs, charts, and ticket views", "Integrate api endpoints and handle server-side state", "Perform end-to-end user path testing and UX fixes"],
+        ownerDepartment: "Frontend & Design"
+      },
+      {
+        phaseNumber: 4,
+        title: "Security Auditing, QA & Production Deployment",
+        weeks: "Week 6",
+        deliverables: ["Vulnerability Scan Log", "Continuous Integration pipelines", "Live Production Release"],
+        tasks: ["Perform dependency scans and static security code audits", "Setup build runners, environment variable injectors, and scaling policies", "Go-live with pilot user cohort and initialize performance dashboard"],
+        ownerDepartment: "Security & DevOps"
+      }
+    ];
   }
 }
