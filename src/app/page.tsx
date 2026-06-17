@@ -192,104 +192,138 @@ export default function DashboardPage() {
         {/* High Fidelity Metrics Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {/* Card 1 */}
-          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-all" />
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Total Ideas</p>
-                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 mt-1">{loading ? '...' : totalIdeasCount}</h3>
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-all duration-300" />
+            <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-h-[38px] flex items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-tight">Total Ideas Submitted</p>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                    />
+                  </svg>
+                </div>
               </div>
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                  />
-                </svg>
+              <div className="mt-4">
+                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight">{loading ? '...' : totalIdeasCount}</h3>
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">100% active</span> submissions
-            </p>
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-900/40 min-h-[36px] flex items-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">100% active</span> submissions
+              </p>
+            </div>
           </div>
 
           {/* Card 2 */}
-          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all" />
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Approved Projects</p>
-                <h3 className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{loading ? '...' : approvedCount}</h3>
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all duration-300" />
+            <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-h-[38px] flex items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-tight">
+                    Approved<br />Ideas
+                  </p>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-emerald-600 dark:text-emerald-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div className="mt-4">
+                <h3 className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{loading ? '...' : approvedCount}</h3>
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
-              Ready for executive implementation
-            </p>
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-900/40 min-h-[36px] flex items-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                Ready for implementation
+              </p>
+            </div>
           </div>
 
           {/* Card 3 */}
-          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all" />
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Review Hub</p>
-                <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 mt-1">{loading ? '...' : pendingCount}</h3>
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl group-hover:bg-amber-500/10 transition-all duration-300" />
+            <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-h-[38px] flex items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-tight">Under Review and Submitted</p>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-amber-600 dark:text-amber-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-amber-600 dark:text-amber-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div className="mt-4">
+                <h3 className="text-3xl font-black text-amber-600 dark:text-amber-400 tracking-tight">{loading ? '...' : pendingCount}</h3>
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
-              Awaiting agent evaluation
-            </p>
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-900/40 min-h-[36px] flex items-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                Awaiting agent evaluation
+              </p>
+            </div>
           </div>
 
           {/* Card 4 (Rejected Count) */}
-          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all" />
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Rejected Projects</p>
-                <h3 className="text-3xl font-black text-rose-600 dark:text-rose-400 mt-1">{loading ? '...' : rejectedCount}</h3>
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all duration-300" />
+            <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-h-[38px] flex items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-tight">
+                    Rejected<br />Ideas
+                  </p>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-rose-600 dark:text-rose-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-rose-600 dark:text-rose-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div className="mt-4">
+                <h3 className="text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight">{loading ? '...' : rejectedCount}</h3>
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
-              Archived ideas and submissions
-            </p>
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-900/40 min-h-[36px] flex items-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                Archived ideas and submissions
+              </p>
+            </div>
           </div>
 
           {/* Card 5 */}
-          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/10 transition-all" />
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Avg Innovation Score</p>
-                <h3 className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mt-1">{loading ? '...' : `${averageInnovationScore}/100`}</h3>
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-300">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/10 transition-all duration-300" />
+            <div>
+              <div className="flex justify-between items-start gap-4">
+                <div className="min-h-[38px] flex items-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 leading-tight">Avg Innovation Score</p>
+                </div>
+                <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.001 0 0120.488 9z" />
+                  </svg>
+                </div>
               </div>
-              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-indigo-600 dark:text-indigo-400">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.001 0 0120.488 9z" />
-                </svg>
+              <div className="mt-4">
+                <h3 className="text-3xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">{loading ? '...' : `${averageInnovationScore}/100`}</h3>
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
-              Calculated across multi-agents
-            </p>
+            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-900/40 min-h-[36px] flex items-center">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                Calculated across multi-agents
+              </p>
+            </div>
           </div>
         </div>
 
