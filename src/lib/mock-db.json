@@ -69,7 +69,7 @@
       "department": "operations",
       "category": "Process Optimization",
       "expectedBenefits": "Expected Benefits:\n\nEarly detection of partner churn risks\nFaster intervention by Partner Managers\nImproved partner retention\nBetter allocation of account management resources\n\nBusiness Impact:\n\nIncreased partner retention\nImproved revenue protection\nReduced manual monitoring effort\nBetter partner relationship management\n\nEstimated ROI:\nVery High",
-      "status": "submitted",
+      "status": "rejected",
       "innovationScore": 76,
       "createdBy": "user_3",
       "createdAt": "2026-06-16T13:47:37.947Z"
@@ -295,6 +295,13 @@
       "userId": "user_3",
       "comment": "Good idea",
       "createdAt": "2026-06-16T05:54:10.731Z"
+    }
+  ],
+  "summaries": [
+    {
+      "ideaId": "idea_1781617657947",
+      "summary": "### Executive Summary: AI Partner Health & Risk Monitor\n\n**Problem Statement:** \nPartner Managers currently rely on manual, fragmented dashboard monitoring to track partner performance, leaving the organization vulnerable to undetected partner churn, abnormal traffic anomalies, and delayed interventions that directly threaten revenue stability.\n\n**Proposed Solution:** \nImplement an AI-powered monitoring engine that ingests real-time multi-channel data streams—including registrations, deposits, trading volumes, and traffic quality—to run predictive anomaly detection models that automatically trigger proactive risk alerts and prescriptive action recommendations.\n\n**Expected Benefits:** \nThis system delivers a very high ROI by safeguarding partner-driven revenue streams, reducing manual monitoring overhead, and preventing churn. It mitigates cognitive fatigue for Partner Managers, shifting their workflow from reactive firefighting to proactive, high-value relationship management and targeted partner support.\n\n**Implementation Recommendation:** \nLaunch a phased pilot prioritizing the integration of disparate data sources into a unified, low-latency data pipeline. To address compliance and security requirements, the architecture must incorporate strict role-based access controls (RBAC) and data masking for sensitive financial and volume metrics.",
+      "generatedAt": "2026-06-16T14:17:27.425Z"
     }
   ]
 }

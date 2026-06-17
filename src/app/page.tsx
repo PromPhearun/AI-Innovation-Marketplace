@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedRating, setSelectedRating] = useState('All');
+  const [selectedScore, setSelectedScore] = useState('All');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'mine'>('all');
 
   const fetchDashboardData = async () => {
@@ -102,6 +103,25 @@ export default function DashboardPage() {
       }
     }
 
+    // Score match
+    let matchesScore = true;
+    if (selectedScore !== 'All') {
+      const score = idea.innovationScore;
+      if (selectedScore === '90-100') {
+        matchesScore = score >= 90 && score <= 100;
+      } else if (selectedScore === '80-89') {
+        matchesScore = score >= 80 && score <= 89;
+      } else if (selectedScore === '70-79') {
+        matchesScore = score >= 70 && score <= 79;
+      } else if (selectedScore === '60-69') {
+        matchesScore = score >= 60 && score <= 69;
+      } else if (selectedScore === '50-59') {
+        matchesScore = score >= 50 && score <= 59;
+      } else if (selectedScore === 'below-50') {
+        matchesScore = score < 50;
+      }
+    }
+
     // Role-based tab match
     let matchesTab = true;
     if (activeTab === 'mine') {
@@ -110,13 +130,14 @@ export default function DashboardPage() {
       matchesTab = idea.status === 'submitted' || idea.status === 'under_review';
     }
 
-    return matchesSearch && matchesDept && matchesCategory && matchesStatus && matchesRating && matchesTab;
+    return matchesSearch && matchesDept && matchesCategory && matchesStatus && matchesRating && matchesScore && matchesTab;
   });
 
   // KPI Calculations
   const totalIdeasCount = ideas.length;
   const approvedCount = ideas.filter((i) => i.status === 'approved').length;
   const pendingCount = ideas.filter((i) => i.status === 'submitted' || i.status === 'under_review').length;
+  const rejectedCount = ideas.filter((i) => i.status === 'rejected').length;
   const averageInnovationScore =
     ideas.length > 0
       ? Math.round(ideas.reduce((acc, i) => acc + i.innovationScore, 0) / ideas.length)
@@ -169,7 +190,7 @@ export default function DashboardPage() {
         </div>
 
         {/* High Fidelity Metrics Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
           {/* Card 1 */}
           <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl group-hover:bg-indigo-500/10 transition-all" />
@@ -232,7 +253,26 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Card 4 */}
+          {/* Card 4 (Rejected Count) */}
+          <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-2xl group-hover:bg-rose-500/10 transition-all" />
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Rejected Projects</p>
+                <h3 className="text-3xl font-black text-rose-600 dark:text-rose-400 mt-1">{loading ? '...' : rejectedCount}</h3>
+              </div>
+              <div className="p-2.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-rose-600 dark:text-rose-400">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 flex items-center gap-1">
+              Archived ideas and submissions
+            </p>
+          </div>
+
+          {/* Card 5 */}
           <div className="bg-white dark:bg-slate-950 p-6 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-md flex flex-col justify-between relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
             <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-2xl group-hover:bg-violet-500/10 transition-all" />
             <div className="flex justify-between items-start">
@@ -318,7 +358,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Filtering Dropdowns */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {/* Department */}
             <div className="space-y-1.5">
               <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Department</label>
@@ -383,6 +423,24 @@ export default function DashboardPage() {
                 <option value="1">1 Stars (1.0 to 1.9)</option>
               </select>
             </div>
+
+            {/* Score Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Filter by Score</label>
+              <select
+                value={selectedScore}
+                onChange={(e) => setSelectedScore(e.target.value)}
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+              >
+                <option value="All">All Scores</option>
+                <option value="90-100">90 - 100</option>
+                <option value="80-89">80 - 89</option>
+                <option value="70-79">70 - 79</option>
+                <option value="60-69">60 - 69</option>
+                <option value="50-59">50 - 59</option>
+                <option value="below-50">Below 50</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -429,6 +487,7 @@ export default function DashboardPage() {
                 setSelectedCategory('All');
                 setSelectedStatus('All');
                 setSelectedRating('All');
+                setSelectedScore('All');
                 setActiveTab('all');
               }}
               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold hover:dark:bg-slate-800 hover:dark:text-white transition-all"
