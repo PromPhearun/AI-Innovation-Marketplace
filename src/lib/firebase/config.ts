@@ -11,12 +11,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Check if all essential keys are present
-export const isFirebaseConfigured = !!(
-  firebaseConfig.apiKey &&
-  firebaseConfig.projectId &&
-  firebaseConfig.authDomain
-);
+// Check if all essential keys are present and Firebase is explicitly enabled
+export const isFirebaseConfigured = 
+  process.env.NEXT_PUBLIC_USE_FIREBASE === 'true' &&
+  !!(
+    firebaseConfig.apiKey &&
+    firebaseConfig.projectId &&
+    firebaseConfig.authDomain
+  );
 
 let app;
 let db: Firestore = null as unknown as Firestore;
