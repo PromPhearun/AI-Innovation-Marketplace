@@ -324,10 +324,10 @@ class MockDB {
     ];
 
     this.votes = [
-      { ideaId: 'idea_1', userId: 'user_1', vote: 5 },
-      { ideaId: 'idea_1', userId: 'user_3', vote: 4 },
-      { ideaId: 'idea_2', userId: 'user_2', vote: 5 },
-      { ideaId: 'idea_3', userId: 'user_1', vote: 3 },
+      { ideaId: 'idea_1', userId: 'user_1', vote: 5, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 4).toISOString() },
+      { ideaId: 'idea_1', userId: 'user_3', vote: 4, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString() },
+      { ideaId: 'idea_2', userId: 'user_2', vote: 5, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1).toISOString() },
+      { ideaId: 'idea_3', userId: 'user_1', vote: 3, createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString() },
     ];
 
     this.comments = [
@@ -439,6 +439,11 @@ class MockDB {
   getComments(ideaId: string): Comment[] {
     this.loadFromStorage();
     return this.comments.filter(c => c.ideaId === ideaId);
+  }
+
+  getAllComments(): Comment[] {
+    this.loadFromStorage();
+    return this.comments;
   }
 
   addComment(comment: Comment): Comment {

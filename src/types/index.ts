@@ -19,6 +19,7 @@ export interface Idea {
   createdBy: string;
   createdAt: string;
   votes?: Vote[];
+  comments?: Comment[];
   clickup?: ClickUpSync;
 }
 
@@ -34,6 +35,7 @@ export interface Vote {
   ideaId: string;
   userId: string;
   vote: number; // star rating 1-5
+  createdAt?: string;
 }
 
 export interface Comment {

@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [selectedRating, setSelectedRating] = useState('All');
   const [selectedScore, setSelectedScore] = useState('All');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'mine'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'recent_activity' | 'highest_score' | 'highest_rated' | 'most_active'>('newest');
 
   const fetchDashboardData = async () => {
     try {
@@ -144,6 +145,55 @@ export default function DashboardPage() {
     }
 
     return matchesSearch && matchesDept && matchesCategory && matchesStatus && matchesRating && matchesScore && matchesTab;
+  });
+
+  // Sorting logic
+  const sortedAndFilteredIdeas = [...filteredIdeas].sort((a, b) => {
+    if (sortBy === 'newest') {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    if (sortBy === 'oldest') {
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+    if (sortBy === 'recent_activity') {
+      const getLatestActivityTime = (idea: Idea) => {
+        let maxTime = new Date(idea.createdAt).getTime();
+        
+        if (idea.comments && idea.comments.length > 0) {
+          idea.comments.forEach((c) => {
+            const t = new Date(c.createdAt).getTime();
+            if (t > maxTime) maxTime = t;
+          });
+        }
+        
+        if (idea.votes && idea.votes.length > 0) {
+          idea.votes.forEach((v) => {
+            if (v.createdAt) {
+              const t = new Date(v.createdAt).getTime();
+              if (t > maxTime) maxTime = t;
+            }
+          });
+        }
+        
+        return maxTime;
+      };
+      
+      return getLatestActivityTime(b) - getLatestActivityTime(a);
+    }
+    if (sortBy === 'highest_score') {
+      return b.innovationScore - a.innovationScore;
+    }
+    if (sortBy === 'highest_rated') {
+      const ratingA = parseFloat(getVoteCounts(a.id).avgRating);
+      const ratingB = parseFloat(getVoteCounts(b.id).avgRating);
+      return ratingB - ratingA;
+    }
+    if (sortBy === 'most_active') {
+      const activityCountA = (a.votes?.length || 0) + (a.comments?.length || 0);
+      const activityCountB = (b.votes?.length || 0) + (b.comments?.length || 0);
+      return activityCountB - activityCountA;
+    }
+    return 0;
   });
 
   // KPI Calculations
@@ -387,20 +437,40 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Quick Search */}
-            <div className="relative w-full lg:max-w-xs">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search ideas..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-              />
+            {/* Sort & Search Group */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
+              {/* Sort Dropdown */}
+              <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold whitespace-nowrap">Sort by</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'recent_activity' | 'highest_score' | 'highest_rated' | 'most_active')}
+                  className="w-full sm:w-auto text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                >
+                  <option value="newest">Newest Submission</option>
+                  <option value="oldest">Oldest Submission</option>
+                  <option value="recent_activity">Recent Activities (Rating/Post comment)</option>
+                  <option value="highest_score">Highest Innovation Score</option>
+                  <option value="highest_rated">Highest Rated</option>
+                  <option value="most_active">Most Active / Popular</option>
+                </select>
+              </div>
+
+              {/* Quick Search */}
+              <div className="relative w-full lg:max-w-xs">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400 dark:text-slate-500">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search ideas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/30 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                />
+              </div>
             </div>
           </div>
 
@@ -509,7 +579,7 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        ) : filteredIdeas.length === 0 ? (
+        ) : sortedAndFilteredIdeas.length === 0 ? (
           <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-12 text-center space-y-4 shadow-sm">
             <div className="p-4 bg-slate-100/80 dark:bg-slate-900/80 w-16 h-16 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 mx-auto">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -536,6 +606,7 @@ export default function DashboardPage() {
                 setSelectedRating('All');
                 setSelectedScore('All');
                 setActiveTab('all');
+                setSortBy('newest');
               }}
               className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold hover:dark:bg-slate-800 hover:dark:text-white transition-all"
             >
@@ -544,7 +615,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredIdeas.map((idea) => {
+            {sortedAndFilteredIdeas.map((idea) => {
               const { avgRating, totalVotes } = getVoteCounts(idea.id);
               return (
                 <div

@@ -7,15 +7,17 @@ import { Idea, AIReview } from '@/types';
 
 export async function GET() {
   try {
-    const [ideas, votes, clickups] = await Promise.all([
+    const [ideas, votes, clickups, comments] = await Promise.all([
       ideasService.getIdeas(),
       ideasService.getAllVotes(),
-      ideasService.getAllClickUpSyncs()
+      ideasService.getAllClickUpSyncs(),
+      ideasService.getAllComments()
     ]);
 
     const ideasWithVotes = ideas.map((idea) => ({
       ...idea,
       votes: votes.filter((v) => v.ideaId === idea.id),
+      comments: comments.filter((c) => c.ideaId === idea.id),
       clickup: clickups.find((c) => c.ideaId === idea.id) || undefined,
     }));
 

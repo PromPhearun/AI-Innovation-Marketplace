@@ -33,13 +33,13 @@ export async function POST(
         return NextResponse.json({ message: 'Vote removed', currentVote: null });
       } else {
         // Update vote
-        const newVoteObj: Vote = { ideaId: id, userId, vote };
+        const newVoteObj: Vote = { ideaId: id, userId, vote, createdAt: new Date().toISOString() };
         await ideasService.addVote(newVoteObj);
         return NextResponse.json({ message: 'Vote updated', currentVote: vote });
       }
     } else {
       // Add new vote
-      const newVoteObj: Vote = { ideaId: id, userId, vote };
+      const newVoteObj: Vote = { ideaId: id, userId, vote, createdAt: new Date().toISOString() };
       await ideasService.addVote(newVoteObj);
       return NextResponse.json({ message: 'Vote recorded', currentVote: vote });
     }

@@ -171,6 +171,24 @@ export const ideasService = {
     }
   },
 
+  async getAllComments(): Promise<Comment[]> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getAllComments();
+    }
+
+    try {
+      const querySnapshot = await getDocs(collection(db, 'comments'));
+      const comments: Comment[] = [];
+      querySnapshot.forEach((doc) => {
+        comments.push({ id: doc.id, ...doc.data() } as Comment);
+      });
+      return comments;
+    } catch (error) {
+      console.error('Error fetching all comments from Firestore:', error);
+      return mockDB.getAllComments();
+    }
+  },
+
   async addComment(comment: Comment): Promise<Comment> {
     if (!isFirebaseConfigured) {
       return mockDB.addComment(comment);
