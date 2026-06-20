@@ -6,21 +6,22 @@ import { LayoutWrapper } from '@/components/layout-wrapper';
 interface AgentInfo {
   id: string;
   name: string;
+  fullName: string;
   role: string;
   avatar: string;
   metric: string;
 }
 
 const strategicCouncil: AgentInfo[] = [
-  { id: 'cfo', name: 'CFO Agent', role: 'Financial ROI', avatar: '💼', metric: 'Strategic Fit' },
-  { id: 'cio', name: 'CIO Agent', role: 'Patent & Novelty', avatar: '💡', metric: 'Novelty Score' },
-  { id: 'cco', name: 'CCO Agent', role: 'User Impact', avatar: '🎯', metric: 'Adoption Rate' }
+  { id: 'cfo', name: 'CFO Agent', fullName: 'Chief Financial Officer', role: 'Financial ROI', avatar: '💼', metric: 'Strategic Fit' },
+  { id: 'cio', name: 'CIO Agent', fullName: 'Chief Innovation Officer', role: 'Patent & Novelty', avatar: '💡', metric: 'Novelty Score' },
+  { id: 'cco', name: 'CCO Agent', fullName: 'Chief Customer Officer', role: 'User Impact', avatar: '🎯', metric: 'Adoption Rate' }
 ];
 
 const executionCouncil: AgentInfo[] = [
-  { id: 'cto', name: 'CTO Agent', role: 'Infra & Feasibility', avatar: '🛠️', metric: 'Feasibility' },
-  { id: 'cpo', name: 'CPO Agent', role: 'Workload Synergy', avatar: '👥', metric: 'FTE Delta' },
-  { id: 'ciso', name: 'CISO Agent', role: 'Sec & Compliance', avatar: '🛡️', metric: 'Risk Offset' }
+  { id: 'cto', name: 'CTO Agent', fullName: 'Chief Technology Officer', role: 'Infra & Feasibility', avatar: '🛠️', metric: 'Feasibility' },
+  { id: 'cpo', name: 'CPO Agent', fullName: 'Chief People Officer', role: 'Workload Synergy', avatar: '👥', metric: 'FTE Delta' },
+  { id: 'ciso', name: 'CISO Agent', fullName: 'Chief Information Security Officer', role: 'Sec & Compliance', avatar: '🛡️', metric: 'Risk Offset' }
 ];
 
 interface LoopIdea {
@@ -139,7 +140,7 @@ export default function OverviewPage() {
               &ldquo;Turn Every Employee Into an Innovator&rdquo;
             </h1>
             <p className="text-slate-600 dark:text-slate-300 text-base max-w-3xl mx-auto leading-relaxed">
-              A centralized AI-powered platform where Deriv employees can submit ideas, receive instant business analysis from AI agents, collaborate with colleagues, vote on innovations, and help management prioritize the most impactful initiatives.
+              A centralized AI-powered platform where Deriv employees can submit ideas, receive instant business analysis from multiple AI agents, collaborate with colleagues, vote on innovations, and help management prioritize the most impactful initiatives.
             </p>
           </div>
 
@@ -604,15 +605,16 @@ export default function OverviewPage() {
                       3 Agents
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {strategicCouncil.map(agent => {
                       const score = agentScores[agent.id];
                       return (
-                        <div key={agent.id} className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <div key={agent.id} className="flex items-center justify-between gap-2 p-0.5 rounded hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="text-sm shrink-0">{agent.avatar}</span>
                             <div className="min-w-0">
                               <p className="text-[9.5px] font-bold text-slate-800 dark:text-slate-200 truncate leading-none mb-0.5">{agent.name}</p>
+                              <p className="text-[8px] text-indigo-600 dark:text-indigo-400 truncate leading-none mb-0.5 font-medium">{agent.fullName}</p>
                               <p className="text-[8.5px] text-slate-500 dark:text-slate-400 truncate leading-none">{agent.role}</p>
                             </div>
                           </div>
@@ -650,15 +652,16 @@ export default function OverviewPage() {
                       3 Agents
                     </span>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {executionCouncil.map(agent => {
                       const score = agentScores[agent.id];
                       return (
-                        <div key={agent.id} className="flex items-center justify-between gap-2 p-1 rounded hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors">
+                        <div key={agent.id} className="flex items-center justify-between gap-2 p-0.5 rounded hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span className="text-sm shrink-0">{agent.avatar}</span>
                             <div className="min-w-0">
                               <p className="text-[9.5px] font-bold text-slate-800 dark:text-slate-200 truncate leading-none mb-0.5">{agent.name}</p>
+                              <p className="text-[8px] text-pink-600 dark:text-pink-400 truncate leading-none mb-0.5 font-medium">{agent.fullName}</p>
                               <p className="text-[8.5px] text-slate-500 dark:text-slate-400 truncate leading-none">{agent.role}</p>
                             </div>
                           </div>
