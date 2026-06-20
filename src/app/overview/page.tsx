@@ -135,9 +135,6 @@ export default function OverviewPage() {
         <div className="space-y-8 mb-10">
           {/* Brand Hero Welcome Area */}
           <div className="text-center space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/15 shadow-sm shadow-indigo-500/5">
-              🚀 Deriv AI Innovation Marketplace
-            </span>
             <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white">
               &ldquo;Turn Every Employee Into an Innovator&rdquo;
             </h1>
@@ -202,7 +199,7 @@ export default function OverviewPage() {
                 </h3>
               </div>
               <p className="text-xs text-rose-600/80 dark:text-rose-400/80 leading-normal">
-                However, standard enterprise pipelines suffer from severe operational friction:
+                However, standard enterprise pipelines can face operational challenges:
               </p>
               <div className="space-y-3 pt-1">
                 <div className="flex gap-2.5 items-start">
@@ -220,7 +217,7 @@ export default function OverviewPage() {
                 <div className="flex gap-2.5 items-start">
                   <span className="text-xs shrink-0 select-none pt-0.5">❌</span>
                   <p className="text-[12px] text-slate-600 dark:text-slate-300 leading-normal">
-                    Management struggles to <span className="font-bold text-slate-800 dark:text-slate-200">prioritize and review</span> them fairly.
+                    Prioritizing and reviewing a high volume of submissions is resource-intensive.
                   </p>
                 </div>
                 <div className="flex gap-2.5 items-start">
