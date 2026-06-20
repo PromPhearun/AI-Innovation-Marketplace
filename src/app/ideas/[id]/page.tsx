@@ -289,6 +289,7 @@ export default function IdeaDetailsPage() {
   useEffect(() => {
     if (id) {
       fetchIdeaDetails();
+      loadClickUp();
     }
   }, [id, fetchIdeaDetails]);
 
@@ -457,6 +458,7 @@ export default function IdeaDetailsPage() {
         const data = await res.json();
         setClickup(data);
         showToast('Successfully generated ClickUp Epic with synced subtasks!');
+        await fetchIdeaDetails();
       }
     } catch (err) {
       console.error('Error syncing with ClickUp:', err);
@@ -753,6 +755,19 @@ export default function IdeaDetailsPage() {
               <span className={`text-xs font-bold border rounded-md px-2.5 py-1 uppercase ${getStatusBadgeColor(idea.status)}`}>
                 {idea.status.replace('_', ' ')}
               </span>
+              {clickup && (
+                <a
+                  href={clickup.ticketUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#7b68ee] dark:text-[#9381ff] bg-[#7b68ee]/10 dark:bg-[#7b68ee]/20 border border-[#7b68ee]/25 dark:border-[#7b68ee]/40 px-2.5 py-1 rounded-md font-black hover:underline flex items-center gap-1.5 transition-all animate-fade-in"
+                >
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                  </svg>
+                  ClickUp Created: {clickup.ticketKey}
+                </a>
+              )}
             </div>
             <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>Submitted by User #{idea.createdBy.split('_')[1] || idea.createdBy}</span>

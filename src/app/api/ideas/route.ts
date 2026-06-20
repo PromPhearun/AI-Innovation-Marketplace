@@ -7,14 +7,16 @@ import { Idea, AIReview } from '@/types';
 
 export async function GET() {
   try {
-    const [ideas, votes] = await Promise.all([
+    const [ideas, votes, clickups] = await Promise.all([
       ideasService.getIdeas(),
-      ideasService.getAllVotes()
+      ideasService.getAllVotes(),
+      ideasService.getAllClickUpSyncs()
     ]);
 
     const ideasWithVotes = ideas.map((idea) => ({
       ...idea,
       votes: votes.filter((v) => v.ideaId === idea.id),
+      clickup: clickups.find((c) => c.ideaId === idea.id) || undefined,
     }));
 
     return NextResponse.json(ideasWithVotes);

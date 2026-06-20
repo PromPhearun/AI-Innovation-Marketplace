@@ -614,6 +614,22 @@ export default function DashboardPage() {
                           By User #{idea.createdBy.split('_')[1] || idea.createdBy}
                         </span>
                       </div>
+
+                      {idea.clickup && (
+                        <a
+                          href={idea.clickup.ticketUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-[10px] text-[#7b68ee] dark:text-[#9381ff] bg-[#7b68ee]/10 dark:bg-[#7b68ee]/20 border border-[#7b68ee]/25 dark:border-[#7b68ee]/40 px-2 py-0.5 rounded-md font-black hover:underline flex items-center gap-1 transition-all"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                          </svg>
+                          ClickUp Created: {idea.clickup.ticketKey}
+                        </a>
+                      )}
+
                       <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
                         {new Date(idea.createdAt).toLocaleDateString()}
                       </span>

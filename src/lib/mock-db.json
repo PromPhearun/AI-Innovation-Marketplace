@@ -295,6 +295,14 @@
       "userId": "user_3",
       "comment": "Good idea",
       "createdAt": "2026-06-16T05:54:10.731Z"
+    },
+    {
+      "id": "comment_clickup_1781917589830",
+      "ideaId": "idea_1",
+      "userId": "clickup_bot",
+      "userName": "ClickUp Integration",
+      "comment": "ClickUp task successfully created! Ticket Key: CU-8673. View task: https://app.clickup.com/9003102/v/t/idea_1",
+      "createdAt": "2026-06-20T01:06:29.830Z"
     }
   ],
   "summaries": [
@@ -621,9 +629,9 @@
   "clickups": [
     {
       "ideaId": "idea_1",
-      "ticketKey": "CU-8934",
+      "ticketKey": "CU-8673",
       "ticketUrl": "https://app.clickup.com/9003102/v/t/idea_1",
-      "syncedAt": "2026-06-17T06:41:27.349Z",
+      "syncedAt": "2026-06-20T01:06:29.826Z",
       "subtasks": [
         {
           "id": "CU-SUB-1",

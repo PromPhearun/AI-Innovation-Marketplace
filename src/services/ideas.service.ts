@@ -342,6 +342,24 @@ export const ideasService = {
     }
   },
 
+  async getAllClickUpSyncs(): Promise<ClickUpSync[]> {
+    if (!isFirebaseConfigured) {
+      return mockDB.getAllClickUpSyncs();
+    }
+
+    try {
+      const querySnapshot = await getDocs(collection(db, 'clickups'));
+      const clickups: ClickUpSync[] = [];
+      querySnapshot.forEach((doc) => {
+        clickups.push(doc.data() as ClickUpSync);
+      });
+      return clickups;
+    } catch (error) {
+      console.error('Error fetching all ClickUpSyncs from Firestore:', error);
+      return mockDB.getAllClickUpSyncs();
+    }
+  },
+
   async saveClickUpSync(ideaId: string, clickup: ClickUpSync): Promise<void> {
     if (!isFirebaseConfigured) {
       mockDB.saveClickUpSync(clickup);

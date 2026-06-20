@@ -19,6 +19,7 @@ export interface Idea {
   createdBy: string;
   createdAt: string;
   votes?: Vote[];
+  clickup?: ClickUpSync;
 }
 
 export interface AIReview {

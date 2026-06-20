@@ -489,6 +489,11 @@ class MockDB {
     return this.clickups.find(c => c.ideaId === ideaId);
   }
 
+  getAllClickUpSyncs(): ClickUpSync[] {
+    this.loadFromStorage();
+    return this.clickups;
+  }
+
   saveClickUpSync(clickup: ClickUpSync): void {
     this.loadFromStorage();
     this.clickups = this.clickups.filter(c => c.ideaId !== clickup.ideaId);
