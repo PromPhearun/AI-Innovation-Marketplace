@@ -1375,7 +1375,7 @@ export default function IdeaDetailsPage() {
                       </div>
                       <div>
                         <h3 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
-                          Corporate Slack Broadcast (Simulated)
+                          Corporate Slack Broadcast
                         </h3>
                         <p className="text-[10px] text-slate-400 font-medium">
                           Announce new spotlight concepts automatically into the corporate <strong>#innovation-broadcast</strong> channel
