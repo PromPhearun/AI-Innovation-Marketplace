@@ -233,7 +233,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Innovation Portfolio</h1>
             <p className="text-slate-600 dark:text-slate-400 mt-1.5 text-sm">
-              Discover, evaluate, and test high-impact ideas powered by AI multi-agent evaluation.
+              Discover, evaluate, and validate high-impact ideas powered by AI-driven multi-agent analysis.
             </p>
           </div>
           <button
