@@ -388,11 +388,14 @@ class MockDB {
     return idea;
   }
 
-  updateIdeaStatus(id: string, status: Idea['status']): Idea | undefined {
+  updateIdeaStatus(id: string, status: Idea['status'], managerComment?: string): Idea | undefined {
     this.loadFromStorage();
     const idea = this.ideas.find(i => i.id === id);
     if (idea) {
       idea.status = status;
+      if (managerComment !== undefined) {
+        idea.managerComment = managerComment;
+      }
       this.saveToStorage();
     }
     return idea;

@@ -7,7 +7,8 @@ async function handleStatusUpdate(
 ) {
   try {
     const { id } = await params;
-    const { status } = await request.json();
+    const body = await request.json();
+    const { status, managerComment } = body;
 
     const allowedStatuses = ['submitted', 'under_review', 'approved', 'rejected'] as const;
     if (!status || !allowedStatuses.includes(status)) {
@@ -17,7 +18,28 @@ async function handleStatusUpdate(
       );
     }
 
-    const updatedIdea = await ideasService.updateIdeaStatus(id, status as 'submitted' | 'under_review' | 'approved' | 'rejected');
+    let validatedComment: string | undefined = undefined;
+    if (managerComment !== undefined) {
+      if (typeof managerComment !== 'string') {
+        return NextResponse.json(
+          { error: 'Manager comment must be a string' },
+          { status: 400 }
+        );
+      }
+      if (managerComment.length > 2000) {
+        return NextResponse.json(
+          { error: 'Manager comment must be 2000 characters or less' },
+          { status: 400 }
+        );
+      }
+      validatedComment = managerComment;
+    }
+
+    const updatedIdea = await ideasService.updateIdeaStatus(
+      id,
+      status as 'submitted' | 'under_review' | 'approved' | 'rejected',
+      validatedComment
+    );
     if (!updatedIdea) {
       return NextResponse.json({ error: 'Idea not found' }, { status: 404 });
     }

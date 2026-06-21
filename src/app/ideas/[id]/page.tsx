@@ -263,6 +263,8 @@ export default function IdeaDetailsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
+  const [managerCommentInput, setManagerCommentInput] = useState('');
+  const [savingComment, setSavingComment] = useState(false);
 
   // Loaders
   const fetchIdeaDetails = useCallback(async () => {
@@ -279,6 +281,9 @@ export default function IdeaDetailsPage() {
       setComments(data.comments || []);
       setReviews(data.reviews || []);
       setSummary(data.summary?.summary || null);
+      if (data.idea) {
+        setManagerCommentInput(data.idea.managerComment || '');
+      }
     } catch (err) {
       console.error('Error fetching details:', err);
     } finally {
@@ -436,7 +441,7 @@ export default function IdeaDetailsPage() {
           'Content-Type': 'application/json',
           'x-user-id': currentUser.id,
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, managerComment: managerCommentInput }),
       });
 
       if (res.ok) {
@@ -446,6 +451,30 @@ export default function IdeaDetailsPage() {
       console.error('Error updating status:', err);
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleSaveManagerComment = async () => {
+    if (!idea || !currentUser) return;
+    try {
+      setSavingComment(true);
+      const res = await fetch(`/api/ideas/${idea.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser.id,
+        },
+        body: JSON.stringify({ status: idea.status, managerComment: managerCommentInput }),
+      });
+
+      if (res.ok) {
+        showToast('Manager comments saved successfully!');
+        await fetchIdeaDetails();
+      }
+    } catch (err) {
+      console.error('Error saving manager comment:', err);
+    } finally {
+      setSavingComment(false);
     }
   };
 
@@ -1471,7 +1500,7 @@ export default function IdeaDetailsPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
-                  Manager Controls (Simulated)
+                  Manager Controls
                 </h3>
 
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
@@ -1519,6 +1548,56 @@ export default function IdeaDetailsPage() {
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Manager Comments Section */}
+            {((currentUser?.role === 'manager' || currentUser?.role === 'admin') || (idea && idea.managerComment)) && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  Manager Comments
+                </h3>
+
+                {(currentUser?.role === 'manager' || currentUser?.role === 'admin') ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={managerCommentInput}
+                      onChange={(e) => setManagerCommentInput(e.target.value)}
+                      placeholder="Add a comment on why this idea got approved, rejected, or returned to under review..."
+                      maxLength={2000}
+                      className="w-full h-32 px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        {managerCommentInput.length}/2000 characters
+                      </span>
+                      <button
+                        onClick={handleSaveManagerComment}
+                        disabled={savingComment || updatingStatus}
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      >
+                        {savingComment ? (
+                          <>
+                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Comment'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-850 text-slate-700 dark:text-slate-300 text-xs italic leading-relaxed">
+                    &ldquo;{idea.managerComment}&rdquo;
+                  </div>
+                )}
               </div>
             )}
           </div>

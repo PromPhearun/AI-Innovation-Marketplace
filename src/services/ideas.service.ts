@@ -65,19 +65,23 @@ export const ideasService = {
     }
   },
 
-  async updateIdeaStatus(id: string, status: Idea['status']): Promise<Idea | null> {
+  async updateIdeaStatus(id: string, status: Idea['status'], managerComment?: string): Promise<Idea | null> {
     if (!isFirebaseConfigured) {
-      return mockDB.updateIdeaStatus(id, status) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment) || null;
     }
 
     try {
       const docRef = doc(db, 'ideas', id);
-      await updateDoc(docRef, { status });
+      const updateData: { status: Idea['status']; managerComment?: string } = { status };
+      if (managerComment !== undefined) {
+        updateData.managerComment = managerComment;
+      }
+      await updateDoc(docRef, updateData);
       const updatedSnap = await getDoc(docRef);
       return { id: updatedSnap.id, ...updatedSnap.data() } as Idea;
     } catch (error) {
       console.error('Error updating idea status in Firestore:', error);
-      return mockDB.updateIdeaStatus(id, status) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment) || null;
     }
   },
 

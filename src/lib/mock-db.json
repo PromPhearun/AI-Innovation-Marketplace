@@ -81,10 +81,11 @@
       "department": "operations",
       "category": "Process Optimization",
       "expectedBenefits": "Expected Benefits\nFaster issue detection\nBetter customer experience\nReduced support volume\nImproved retention\nBusiness Impact\n\nVery High\n\nDirect customer-facing value.\n\nEstimated ROI\n\nHigh",
-      "status": "submitted",
+      "status": "under_review",
       "innovationScore": 73,
       "createdBy": "user_3",
-      "createdAt": "2026-06-21T02:50:10.697Z"
+      "createdAt": "2026-06-21T02:50:10.697Z",
+      "managerComment": "Need to discuss with other managers."
     }
   ],
   "reviews": [
@@ -357,6 +358,14 @@
       "userName": "ClickUp Integration",
       "comment": "ClickUp task successfully created! Ticket Key: CU-8673. View task: https://app.clickup.com/9003102/v/t/idea_1",
       "createdAt": "2026-06-20T01:06:29.830Z"
+    },
+    {
+      "id": "comment_clickup_1782014258911",
+      "ideaId": "idea_1782010210697",
+      "userId": "clickup_bot",
+      "userName": "ClickUp Integration",
+      "comment": "ClickUp task successfully created! Ticket Key: CU-5844. View task: https://app.clickup.com/9003102/v/t/idea_1782010210697",
+      "createdAt": "2026-06-21T03:57:38.911Z"
     }
   ],
   "summaries": [
@@ -905,6 +914,134 @@
         {
           "id": "CU-SUB-28",
           "text": "[Phase 4] Production-ready deployment on cloud infrastructure",
+          "completed": false
+        }
+      ]
+    },
+    {
+      "ideaId": "idea_1782010210697",
+      "ticketKey": "CU-5844",
+      "ticketUrl": "https://app.clickup.com/9003102/v/t/idea_1782010210697",
+      "syncedAt": "2026-06-21T03:57:38.909Z",
+      "subtasks": [
+        {
+          "id": "CU-SUB-1",
+          "text": "[Phase 1] Establish API connections to Zendesk, Intercom, and community forums",
+          "completed": true
+        },
+        {
+          "id": "CU-SUB-2",
+          "text": "[Phase 1] Set up secure cloud storage and database infrastructure",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-3",
+          "text": "[Phase 1] Define data schema and anonymization rules for PII",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-4",
+          "text": "[Phase 1] Data ingestion pipelines for support tickets and live chat",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-5",
+          "text": "[Phase 1] System architecture design document",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-6",
+          "text": "[Phase 1] Data privacy and compliance clearance",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-7",
+          "text": "[Phase 2] Annotate training data from historical support tickets",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-8",
+          "text": "[Phase 2] Train and fine-tune NLP models to identify customer pain points",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-9",
+          "text": "[Phase 2] Implement clustering algorithms to group similar issues",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-10",
+          "text": "[Phase 2] Trained NLP model for friction detection",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-11",
+          "text": "[Phase 2] Topic modeling and sentiment analysis pipeline",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-12",
+          "text": "[Phase 2] Friction classification taxonomy",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-13",
+          "text": "[Phase 3] Develop backend services for automated report generation",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-14",
+          "text": "[Phase 3] Integrate alerting webhooks with Slack and Jira",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-15",
+          "text": "[Phase 3] Build frontend dashboard for visualizing recurring friction points",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-16",
+          "text": "[Phase 3] Real-time alerting system (Slack/Jira integration)",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-17",
+          "text": "[Phase 3] Friction analytics dashboard",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-18",
+          "text": "[Phase 3] Actionable recommendation engine",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-19",
+          "text": "[Phase 4] Conduct end-to-end integration and load testing",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-20",
+          "text": "[Phase 4] Deploy the system to production environment",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-21",
+          "text": "[Phase 4] Train support and product teams on interpreting alerts and dashboards",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-22",
+          "text": "[Phase 4] Production-ready AI Friction Detector",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-23",
+          "text": "[Phase 4] User acceptance testing (UAT) sign-off",
+          "completed": false
+        },
+        {
+          "id": "CU-SUB-24",
+          "text": "[Phase 4] Standard Operating Procedures (SOP) and training documentation",
           "completed": false
         }
       ]

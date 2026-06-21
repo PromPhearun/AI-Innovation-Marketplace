@@ -21,6 +21,7 @@ export interface Idea {
   votes?: Vote[];
   comments?: Comment[];
   clickup?: ClickUpSync;
+  managerComment?: string;
 }
 
 export interface AIReview {
