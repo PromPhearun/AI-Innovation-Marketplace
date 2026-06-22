@@ -13,15 +13,15 @@ interface AgentInfo {
 }
 
 const strategicCouncil: AgentInfo[] = [
-  { id: 'cfo', name: 'CFO Agent', fullName: 'Chief Financial Officer', role: 'Financial ROI', avatar: '💼', metric: 'Strategic Fit' },
-  { id: 'cio', name: 'CIO Agent', fullName: 'Chief Innovation Officer', role: 'Patent & Novelty', avatar: '💡', metric: 'Novelty Score' },
-  { id: 'cco', name: 'CCO Agent', fullName: 'Chief Customer Officer', role: 'User Impact', avatar: '🎯', metric: 'Adoption Rate' }
+  { id: 'business', name: 'CFO Agent', fullName: 'Chief Finance Officer', role: 'Financial ROI', avatar: '💼', metric: 'Business ROI' },
+  { id: 'innovation', name: 'CCO Agent', fullName: 'Chief Compliance Officer', role: 'Compliance & IP', avatar: '⚖️', metric: 'Compliance' },
+  { id: 'customerImpact', name: 'CGO Agent', fullName: 'Chief Growth Officer', role: 'Customer Impact', avatar: '🎯', metric: 'Growth Score' }
 ];
 
 const executionCouncil: AgentInfo[] = [
-  { id: 'cto', name: 'CTO Agent', fullName: 'Chief Technology Officer', role: 'Infra & Feasibility', avatar: '🛠️', metric: 'Feasibility' },
-  { id: 'cpo', name: 'CPO Agent', fullName: 'Chief People Officer', role: 'Workload Synergy', avatar: '👥', metric: 'FTE Delta' },
-  { id: 'ciso', name: 'CISO Agent', fullName: 'Chief Information Security Officer', role: 'Sec & Compliance', avatar: '🛡️', metric: 'Risk Offset' }
+  { id: 'feasibility', name: 'ChEO Agent', fullName: 'Chief Engineering Officer', role: 'Feasibility & Speed', avatar: '🛠️', metric: 'Feasibility' },
+  { id: 'employeeImpact', name: 'CHRO Agent', fullName: 'Chief Human Resources Officer', role: 'Employee Workload', avatar: '👥', metric: 'Workload Synergy' },
+  { id: 'security', name: 'CSO Agent', fullName: 'Chief Security Officer', role: 'Security & Risk Offset', avatar: '🛡️', metric: 'Risk Offset' }
 ];
 
 interface LoopIdea {
@@ -118,12 +118,12 @@ export default function OverviewPage() {
   useEffect(() => {
     const base = currentIdea.score;
     setAgentScores({
-      cfo: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
-      cio: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
-      cco: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
-      cto: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
-      cpo: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
-      ciso: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 6 - 2))))
+      business: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
+      innovation: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
+      customerImpact: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
+      feasibility: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
+      employeeImpact: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 12 - 6)))),
+      security: Math.min(100, Math.max(10, Math.round(base + (Math.random() * 6 - 2))))
     });
   }, [currentIdeaIndex]);
 

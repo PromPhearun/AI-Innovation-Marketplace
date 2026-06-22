@@ -14,10 +14,12 @@ interface SimilarIdeaResult {
 
 const evaluationStages = [
   'Initializing AI Multi-Agent consensus protocols...',
-  'Assigning Business Strategy Expert for market viability...',
-  'Spinning up Feasibility Engineer to rate technical complexities...',
-  'Deploying Employee Impact Council for cultural synergy rating...',
-  'Engaging Chief Innovation Officer to review novelty aspects...',
+  'Assigning Chief Finance Officer (CFO) to evaluate strategic fit and ROI...',
+  'Consulting Chief Engineering Officer (ChEO) on technical feasibility and scaling...',
+  'Deploying Chief Human Resources Officer (CHRO) to analyze change management...',
+  'Engaging Chief Compliance Officer (CCO) to audit regulatory and policy alignment...',
+  'Calling Chief Security Officer (CSO) to evaluate security posture and risk offset...',
+  'Coordinating with Chief Growth Officer (CGO) to analyze user impact and growth...',
   'Aggregating scores and writing executive summary...',
   'Finalizing deployment...'
 ];

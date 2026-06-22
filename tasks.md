@@ -246,44 +246,31 @@ Create:
 
 ### Tasks
 
-Build:
+Build six specialized C-Suite AI Agents:
 
-### Business Impact Agent
+### 💼 CFO (Chief Finance Officer)
+*   Evaluate: Revenue generation, operational cost reduction, and financial ROI.
 
-Evaluate:
+### 🛠️ ChEO (Chief Engineering Officer)
+*   Evaluate: Technical feasibility, infrastructure requirements, scaling limitations, and development complexity.
 
-* Revenue potential
-* Cost savings
-* Productivity gain
+### 👥 CHRO (Chief Human Resources Officer)
+*   Evaluate: Employee workflow, organizational culture, change management, training, and productivity.
 
-### Feasibility Agent
+### ⚖️ CCO (Chief Compliance Officer)
+*   Evaluate: Regulatory alignment, policy adherence, legal constraints, intellectual property issues, and licensing.
 
-Evaluate:
+### 🛡️ CSO (Chief Security Officer)
+*   Evaluate: Security posture, data privacy implications (GDPR/PII), vulnerability exposure, and threat surface.
 
-* Complexity
-* Resources
-* Dependencies
-
-### Employee Impact Agent
-
-Evaluate:
-
-* Adoption
-* Employee benefit
-* Process improvement
-
-### Innovation Agent
-
-Evaluate:
-
-* Creativity
-* Strategic value
+### 🎯 CGO (Chief Growth Officer)
+*   Evaluate: User acquisition, customer delight, onboarding friction, retention, and market scalability.
 
 Store reviews in database.
 
 ### Deliverables
 
-* Automatic AI reviews generated
+* Automatic multi-agent C-Suite reviews generated asynchronously
 
 ### Status
 
@@ -297,19 +284,18 @@ Store reviews in database.
 
 ### Tasks
 
-Implement score calculation:
+Implement weighted consensus score calculation:
 
-Business Impact × 40%
-
-Feasibility × 25%
-
-Employee Impact × 20%
-
-Innovation × 15%
+* CFO (business): 25%
+* ChEO (feasibility): 20%
+* CHRO (employeeImpact): 15%
+* CCO (innovation): 15%
+* CSO (security): 15%
+* CGO (customerImpact): 10%
 
 Generate:
 
-* Overall Score
+* Overall Score (0-100)
 * Rating Label
 
 Example:

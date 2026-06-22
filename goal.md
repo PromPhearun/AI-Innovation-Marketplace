@@ -88,86 +88,54 @@ Automate webinar campaign planning and execution using AI.
 
 ## 2. AI Multi-Agent Evaluation
 
-When an idea is submitted, multiple AI reviewers automatically evaluate it.
+When an idea is submitted, six specialized C-Suite AI Agents automatically audit and critique the proposal from their professional perspectives:
 
-### Business Impact Agent
+### 💼 CFO (Chief Finance Officer)
+*   **Focus:** Financial viability, revenue generation potential, operational cost reduction, and business ROI.
+*   **Metric:** Score (0-100) indicating financial return and viability.
 
-Evaluates:
+### 🛠️ ChEO (Chief Engineering Officer)
+*   **Focus:** Technical feasibility, architecture requirements, infrastructure impact, scaling limitations, and development complexity.
+*   **Metric:** Score (0-100) representing technical ease of implementation.
 
-* Revenue potential
-* Cost reduction
-* Productivity improvement
+### 👥 CHRO (Chief Human Resources Officer)
+*   **Focus:** Employee workflow, organizational culture, change management, training timelines, and employee productivity.
+*   **Metric:** Score (0-100) on organizational synergy.
 
-Returns:
+### ⚖️ CCO (Chief Compliance Officer)
+*   **Focus:** Regulatory alignment, policy adherence, legal constraints, intellectual property issues, and licensing compliance.
+*   **Metric:** Score (0-100) indicating safety from compliance risks.
 
-* Score (1-10)
-* Explanation
+### 🛡️ CSO (Chief Security Officer)
+*   **Focus:** Security posture, data privacy implications (GDPR/PII), vulnerability exposure, and threat surface.
+*   **Metric:** Score (0-100) representing the strength of security risk mitigation.
 
----
-
-### Feasibility Agent
-
-Evaluates:
-
-* Technical complexity
-* Resource requirements
-* Dependencies
-
-Returns:
-
-* Score (1-10)
-* Explanation
-
----
-
-### Employee Impact Agent
-
-Evaluates:
-
-* Number of employees affected
-* Productivity benefits
-* User adoption potential
-
-Returns:
-
-* Score (1-10)
-* Explanation
-
----
-
-### Innovation Agent
-
-Evaluates:
-
-* Originality
-* Strategic value
-* Competitive advantage
-
-Returns:
-
-* Score (1-10)
-* Explanation
+### 🎯 CGO (Chief Growth Officer)
+*   **Focus:** User acquisition, customer delight, onboarding friction, retention impact, and market-facing scalability.
+*   **Metric:** Score (0-100) on customer and market growth impact.
 
 ---
 
 ## 3. Innovation Scoring
 
-Generate an overall Innovation Score based on AI evaluations.
+Generate an overall weighted Innovation Score (0-100) based on all six C-Suite evaluations.
 
-Example Formula:
+Mathematical Consensus Formula:
 
+```typescript
 Final Score =
-(Business Impact × 40%)
-
-* (Feasibility × 25%)
-* (Employee Impact × 20%)
-* (Innovation × 15%)
+  CFO (business) * 0.25 +
+  ChEO (feasibility) * 0.20 +
+  CHRO (employeeImpact) * 0.15 +
+  CCO (innovation) * 0.15 +
+  CSO (security) * 0.15 +
+  CGO (customerImpact) * 0.10;
+```
 
 Display:
-
-* Overall Score
-* Individual Category Scores
-* AI Recommendations
+* Overall Score (0-100) with classification (e.g., Transformational, High Value, Promising, Needs Review)
+* Individual C-Suite Scores & Detailed Critical Analysis
+* AI Recommendations & Combined Action Steps
 
 ---
 

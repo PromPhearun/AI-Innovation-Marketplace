@@ -605,17 +605,17 @@ export default function IdeaDetailsPage() {
   const getAgentLabel = (agent: string) => {
     switch (agent) {
       case 'business':
-        return 'Chief Financial Officer (CFO)';
+        return 'Chief Finance Officer (CFO)';
       case 'feasibility':
-        return 'Chief Technology Officer (CTO)';
+        return 'Chief Engineering Officer (ChEO)';
       case 'employeeImpact':
-        return 'Chief People Officer (CPO)';
+        return 'Chief Human Resources Officer (CHRO)';
       case 'innovation':
-        return 'Chief Innovation Officer (CIO)';
+        return 'Chief Compliance Officer (CCO)';
       case 'security':
-        return 'Chief Information Security Officer (CISO)';
+        return 'Chief Security Officer (CSO)';
       case 'customerImpact':
-        return 'Chief Customer Officer (CCO)';
+        return 'Chief Growth Officer (CGO)';
       default:
         return agent;
     }

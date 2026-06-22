@@ -65,13 +65,17 @@ Firebase Services
 
 AI Services
 
-├── Idea Evaluation Agent
+├── 💼 CFO Agent (Chief Finance Officer)
 
-├── Feasibility Agent
+├── ⚖️ CCO Agent (Chief Compliance Officer)
 
-├── Innovation Agent
+├── 🎯 CGO Agent (Chief Growth Officer)
 
-├── Employee Impact Agent
+├── 🛠️ ChEO Agent (Chief Engineering Officer)
+
+├── 👥 CHRO Agent (Chief Human Resources Officer)
+
+├── 🛡️ CSO Agent (Chief Security Officer)
 
 └── Executive Summary Generator
 
@@ -350,87 +354,43 @@ Returns:
 
 # AI Agent Architecture
 
-## Agent 1
+The evaluation pipeline contains 6 specialized C-Suite AI agents divided into two functional councils:
 
-Business Impact Agent
+## 1. Strategic Council
 
-Responsibilities:
+### 💼 CFO Agent (Chief Finance Officer)
+*   **Key Focus:** Financial viability, revenue generation potential, operational cost reduction, and business ROI.
+*   **Database Key:** `business`
+*   **Persona Prompt:** Critique the financial viability of this idea. Evaluate its potential for revenue generation, cost saving, and operational ROI. Give a score from 0-100 indicating financial return and viability.
 
-* Revenue potential
-* Cost reduction
-* Productivity gain
+### ⚖️ CCO Agent (Chief Compliance Officer)
+*   **Key Focus:** Regulatory alignment, policy adherence, legal constraints, IP, and licensing compliance.
+*   **Database Key:** `innovation`
+*   **Persona Prompt:** Audit this idea for regulatory alignment, policy adherence, legal constraints, intellectual property issues, and licensing compliance. Give a score from 0-100 indicating safety from compliance risks.
 
-Output:
-
-```json
-{
-  "score": 9,
-  "analysis": "High impact"
-}
-```
-
----
-
-## Agent 2
-
-Feasibility Agent
-
-Responsibilities:
-
-* Technical complexity
-* Resources required
-* Timeline
-
-Output:
-
-```json
-{
-  "score": 7,
-  "analysis": "Medium complexity"
-}
-```
+### 🎯 CGO Agent (Chief Growth Officer)
+*   **Key Focus:** User acquisition, customer delight, onboarding friction, and market-facing scalability.
+*   **Database Key:** `customerImpact`
+*   **Persona Prompt:** Assess user acquisition, customer delight, onboarding friction, retention impact, and market-facing scalability. Give a score from 0-100 on customer and market growth impact.
 
 ---
 
-## Agent 3
+## 2. Execution Council
 
-Employee Impact Agent
+### 🛠️ ChEO Agent (Chief Engineering Officer)
+*   **Key Focus:** Technical feasibility, infrastructure, scaling limitations, and development complexity.
+*   **Database Key:** `feasibility`
+*   **Persona Prompt:** Critically analyze technical feasibility, architecture requirements, infrastructure impact, scaling limitations, and development complexity. Give a score from 0-100 representing technical ease of implementation.
 
-Responsibilities:
+### 👥 CHRO Agent (Chief Human Resources Officer)
+*   **Key Focus:** Employee productivity, workflow disruption, change management, training, and cultural fit.
+*   **Database Key:** `employeeImpact`
+*   **Persona Prompt:** Evaluate how this idea impacts employee workflow, organizational culture, change management, training timelines, and employee productivity. Give a score from 0-100 on organizational synergy.
 
-* Employee productivity
-* Adoption potential
-* Department coverage
-
-Output:
-
-```json
-{
-  "score": 8,
-  "analysis": "Affects multiple teams"
-}
-```
-
----
-
-## Agent 4
-
-Innovation Agent
-
-Responsibilities:
-
-* Creativity
-* Strategic advantage
-* Competitive value
-
-Output:
-
-```json
-{
-  "score": 8,
-  "analysis": "Novel solution"
-}
-```
+### 🛡️ CSO Agent (Chief Security Officer)
+*   **Key Focus:** Security posture, data privacy implications (GDPR/PII), vulnerability exposure, and threat surface.
+*   **Database Key:** `security`
+*   **Persona Prompt:** Evaluate the security posture, data privacy implications (GDPR/PII), vulnerability exposure, and threat surface. Give a score from 0-100 representing the strength of security risk mitigation.
 
 ---
 
@@ -438,12 +398,16 @@ Output:
 
 Formula:
 
+The weighted consensus score is calculated from the individual C-Suite evaluation scores:
+
 ```typescript
 finalScore =
-businessImpact * 0.4 +
-feasibility * 0.25 +
-employeeImpact * 0.2 +
-innovation * 0.15;
+  CFO (business) * 0.25 +
+  ChEO (feasibility) * 0.20 +
+  CHRO (employeeImpact) * 0.15 +
+  CCO (innovation) * 0.15 +
+  CSO (security) * 0.15 +
+  CGO (customerImpact) * 0.10;
 ```
 
 ---

@@ -18,12 +18,12 @@ Description: "${description}"
 Expected Benefits: "${expectedBenefits || 'Not specified'}"
 
 Please evaluate this idea as six distinct C-suite executives:
-1. Chief Financial Officer (CFO - business): Evaluates direct/indirect business returns, cost efficiency, market demand, ROI, and alignment with company financial goals. Weight: 20%.
-2. Chief Technology Officer (CTO - feasibility): Evaluates technical complexity, architecture viability, dependency requirements, implementation speed, and execution viability. Weight: 15%.
-3. Chief People Officer (CPO - employeeImpact): Evaluates daily workflow productivity, skill empowerment, user adoption potential, and employee work life improvements. Weight: 15%.
-4. Chief Innovation Officer (CIO - innovation): Evaluates originality, novelty, creative application of AI, and competitive edge. Weight: 15%.
-5. Chief Information Security Officer (CISO - security): Evaluates security, risk management, financial/data compliance, protection, and platform integrity. Weight: 15%.
-6. Chief Customer Officer (CCO - customerImpact): Evaluates direct/indirect client impact, customer retention, UX improvement, and customer adoption potential. Weight: 20%.
+1. Chief Finance Officer (CFO - business): Evaluates direct/indirect business returns, cost efficiency, market demand, ROI, and alignment with company financial goals. Weight: 20%.
+2. Chief Engineering Officer (ChEO - feasibility): Evaluates technical complexity, architecture viability, dependency requirements, implementation speed, and execution viability. Weight: 15%.
+3. Chief Human Resources Officer (CHRO - employeeImpact): Evaluates daily workflow productivity, skill empowerment, user adoption potential, and employee work life improvements. Weight: 15%.
+4. Chief Compliance Officer (CCO - innovation): Evaluates regulatory compliance, patent and intellectual property potential, policy alignment, and risk mitigation. Weight: 15%.
+5. Chief Security Officer (CSO - security): Evaluates cybersecurity posture, data protection, privacy compliance, platform integrity, and secure architecture. Weight: 15%.
+6. Chief Growth Officer (CGO - customerImpact): Evaluates direct/indirect client impact, customer retention, UX improvement, and market adoption potential. Weight: 20%.
 
 Provide a score from 1 to 10 (integers only) and a brief 2-3 sentence analysis (concise and highly insightful from the specific executive's perspective) for each executive.
 
@@ -169,27 +169,27 @@ Do not include any other markdown formatting outside of JSON.`;
         {
           agentType: 'feasibility',
           score: fScore,
-          analysis: `Technically viable. Integrating modern APIs or LLMs for this application is standard practice. The main implementation complexity will lie in UI integration and training data.`,
+          analysis: `Technically viable. Integrating modern engineering frameworks or cloud capabilities for this application is standard practice. The main execution complexity will lie in interface integrations and data mapping.`,
         },
         {
           agentType: 'employeeImpact',
           score: eScore,
-          analysis: `Substantial workflow improvements. Automating manual parts of "${title}" relieves employees from repetitive tasks, shifting focus towards high-value creative activities.`,
+          analysis: `Substantial workflow and resource optimization. Automating parts of "${title}" aligns personnel workloads with strategic priorities, shifting team focus towards high-value creative or operational activities.`,
         },
         {
           agentType: 'innovation',
           score: iScore,
-          analysis: `Creative application of agentic automation. While direct-automation models exist, tailoring them specifically for company operational channels provides a strong competitive edge.`,
+          analysis: `Strong alignment with regulatory compliance and intellectual property frameworks. The automated workflows for "${title}" ensure auditability, standard-adherence, and structured governance.`,
         },
         {
           agentType: 'security',
           score: sScore,
-          analysis: `Strong alignment with standard enterprise compliance. The proposed automated framework for "${title}" isolates user credentials and secures end-to-end transmissions using encrypted payloads.`,
+          analysis: `Strong security posture. The proposed architecture for "${title}" enforces role-based access controls, robust data protection, and secure integration flows that mitigate platform risks.`,
         },
         {
           agentType: 'customerImpact',
           score: cScore,
-          analysis: `Excellent customer/user enhancement. Making "${title}" seamless and efficient directly improves user onboarding, support responsiveness, and overall client retention.`,
+          analysis: `Excellent market adoption and scale potential. Making "${title}" seamless and efficient directly accelerates organizational growth, client engagement, and core service delivery metrics.`,
         },
       ],
       innovationScore: totalScore,
