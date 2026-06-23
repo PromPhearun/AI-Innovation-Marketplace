@@ -68,9 +68,13 @@ export default function SubmitIdeaPage() {
         if (res.ok) {
           const data = await res.json();
           // Filter out low scores, only show ideas with >= 30% similarity for high-fidelity alerts
-          const highlySimilar = (data.similarIdeas || []).filter(
-            (item: SimilarIdeaResult) => item.score >= 30
-          );
+          const highlySimilar = (data.similarIdeas || [])
+            .filter((item: any) => item.score >= 30)
+            .map((item: any) => ({
+              id: item.idea.id,
+              title: item.idea.title,
+              score: item.score,
+            }));
           setSimilarIdeas(highlySimilar);
         }
       } catch (err) {

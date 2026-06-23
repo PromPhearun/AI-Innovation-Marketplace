@@ -86,6 +86,18 @@
       "createdBy": "user_3",
       "createdAt": "2026-06-21T02:50:10.697Z",
       "managerComment": "Need to discuss with other managers."
+    },
+    {
+      "id": "idea_1782137221172",
+      "title": "AI Learning & Career Growth Advisor",
+      "description": "Problem Statement\n\nEmployees often don't know:\n\nWhich skills to develop\nWhat learning paths are available\nHow to prepare for future roles\n\nManagers also struggle to recommend personalized development plans.\n\nProposed Solution\n\nCreate an AI-powered career advisor that helps employees identify growth opportunities.\n\nThe AI analyzes:\n\nCurrent role\nSkills\nLearning history\nCareer aspirations\n\nThen recommends:\n\nCourses\nCertifications\nInternal learning resources\nPotential mentors\nCareer pathways\n\nExample:\n\n\"I am a Marketing Executive and want to become a Marketing Project Manager.\"\n\nAI generates a personalized growth roadmap.",
+      "department": "hr",
+      "category": "Employee Engagement",
+      "expectedBenefits": "Expected Benefits\nImproved employee development\nBetter internal mobility\nIncreased engagement\nStronger talent retention\nBusiness Impact\n\nMedium to High\n\nEstimated ROI\n\nMedium\n\nLong-term strategic value.",
+      "status": "submitted",
+      "innovationScore": 70,
+      "createdBy": "user_3",
+      "createdAt": "2026-06-22T14:07:01.173Z"
     }
   ],
   "reviews": [
@@ -298,6 +310,48 @@
       "agentType": "customerImpact",
       "score": 9,
       "analysis": "This is a major win for customer experience, as it allows us to resolve friction points before they impact the broader user base. Proactive resolution builds immense brand trust and transforms potential negative experiences into positive touchpoints. It directly drives customer retention and significantly boosts our Net Promoter Score (NPS)."
+    },
+    {
+      "id": "rev_idea_1782137221172_0",
+      "ideaId": "idea_1782137221172",
+      "agentType": "business",
+      "score": 7,
+      "analysis": "While the direct financial ROI is difficult to isolate, reducing employee turnover and recruitment costs through improved internal mobility offers a strong indirect financial return. The long-term strategic value is clear, though we must closely monitor implementation costs against actual adoption rates to ensure cost efficiency."
+    },
+    {
+      "id": "rev_idea_1782137221172_1",
+      "ideaId": "idea_1782137221172",
+      "agentType": "feasibility",
+      "score": 8,
+      "analysis": "From an engineering standpoint, building a recommendation engine using modern LLMs and vector databases is highly feasible and fast to deploy. The primary technical complexity lies in integrating with legacy HRIS and Learning Management Systems (LMS) to ingest clean, real-time employee data."
+    },
+    {
+      "id": "rev_idea_1782137221172_2",
+      "ideaId": "idea_1782137221172",
+      "agentType": "employeeImpact",
+      "score": 9,
+      "analysis": "This tool directly addresses a major pain point in talent retention by democratizing career development and mentorship access. Empowering employees with clear, self-directed growth roadmaps will significantly boost engagement and reduce the administrative burden on managers."
+    },
+    {
+      "id": "rev_idea_1782137221172_3",
+      "ideaId": "idea_1782137221172",
+      "agentType": "innovation",
+      "score": 5,
+      "analysis": "The concept of an AI career coach is relatively common, limiting our ability to secure unique patents or intellectual property. Furthermore, we must carefully navigate compliance risks, as AI systems used in employment and career progression are increasingly classified as high-risk under frameworks like the EU AI Act."
+    },
+    {
+      "id": "rev_idea_1782137221172_4",
+      "ideaId": "idea_1782137221172",
+      "agentType": "security",
+      "score": 7,
+      "analysis": "This platform will process highly sensitive employee PII, performance histories, and career aspirations, making it a target for internal data leaks. We will require strict role-based access controls, data minimization practices, and secure API integrations with our core HR databases to mitigate risk."
+    },
+    {
+      "id": "rev_idea_1782137221172_5",
+      "ideaId": "idea_1782137221172",
+      "agentType": "customerImpact",
+      "score": 6,
+      "analysis": "As an internal-facing tool, the direct impact on our external customers is minimal. However, the indirect benefits are notable; better-trained, highly motivated, and retained employees naturally deliver superior service quality and product innovation to our clients."
     }
   ],
   "votes": [
@@ -383,6 +437,11 @@
       "ideaId": "idea_1782010210697",
       "summary": "### Executive Summary: AI Customer Friction Detector\n\n**Problem Statement:** \nDelayed identification of systemic customer friction points leads to increased support overhead, customer churn, and lost revenue, as issues are currently only detected after widespread escalation. \n\n**Proposed Solution:** \nWe propose an AI-driven engine that ingests multi-channel data (tickets, chats, forums) in real-time, utilizing NLP and LLM-based topic clustering to automatically detect recurring anomalies and generate actionable, automated corrective recommendations.\n\n**Expected Benefits:** \nThis proactive system will significantly reduce support ticket volume and agent burnout, protect recurring revenue, and boost Net Promoter Score (NPS) through rapid friction resolution. It delivers high ROI by shifting support from reactive firefighting to high-value engagement, though multi-channel ingestion costs must be managed.\n\n**Implementation Recommendation:** \nInitiate a phased pilot integrating a secure, self-hosted LLM with a single high-volume data source (e.g., ticketing). Prioritize building a robust PII anonymization pipeline to ensure GDPR/CCPA compliance, and integrate alerts directly into existing Slack/Jira workflows to drive immediate product-team adoption.",
       "generatedAt": "2026-06-21T02:50:38.173Z"
+    },
+    {
+      "ideaId": "idea_1782137221172",
+      "summary": "### Executive Summary: AI Learning & Career Growth Advisor\n\n**Problem Statement:** Organizations suffer from talent attrition and suboptimal internal mobility due to opaque career pathways, fragmented learning resources, and the inability of managers to scale personalized development plans. This structural inefficiency creates critical skill gaps and inflates external recruitment costs.\n\n**Proposed Solution:** We propose deploying an AI-powered career advisor utilizing Large Language Models (LLMs) and vector databases to ingest employee profiles, skills, and learning histories, generating automated, personalized career roadmaps, mentorship connections, and targeted training recommendations.\n\n**Expected Benefits:** This platform democratizes professional development, boosting employee engagement and reducing administrative overhead for managers. Financially, it drives high indirect ROI by accelerating internal mobility, mitigating turnover, and lowering recruitment costs, while indirectly enhancing client service quality through a highly skilled workforce.\n\n**Implementation Recommendation:** Initiate a phased pilot focusing on a single department to test LLM recommendation accuracy and establish secure API integrations with legacy HRIS/LMS systems. To mitigate compliance and security risks, implement strict role-based access controls (RBAC), data minimization protocols for sensitive PII, and align system architecture with EU AI Act high-risk classification requirements before scaling.",
+      "generatedAt": "2026-06-22T14:07:22.024Z"
     }
   ],
   "prds": [
