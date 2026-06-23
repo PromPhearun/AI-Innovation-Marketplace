@@ -1,0 +1,667 @@
+import { openai, MODEL_NAME } from './client';
+import fs from 'fs';
+import path from 'path';
+import { exec } from 'child_process';
+
+// Security: Validate that the ideaId is strictly alphanumeric/dashes/underscores to prevent Path Traversal or Command Injection
+export function validateId(id: string): boolean {
+  return /^[a-zA-Z0-9\-_]+$/.test(id);
+}
+
+export interface LoopStatus {
+  ideaId: string;
+  status: 'idle' | 'running' | 'completed' | 'stopped' | 'failed';
+  iteration: number;
+  maxIterations: number;
+  logs: string[];
+  ideOpened: boolean;
+  error?: string;
+  filesCreated: string[];
+  history: string; // content of prompthistory.md
+}
+
+// In-memory global store to hold loop statuses across API hot-reloads
+const globalWithLoops = global as typeof globalThis & {
+  _agentLoops?: Record<string, LoopStatus>;
+  _abortControllers?: Record<string, boolean>;
+};
+
+if (!globalWithLoops._agentLoops) {
+  globalWithLoops._agentLoops = {};
+}
+if (!globalWithLoops._abortControllers) {
+  globalWithLoops._abortControllers = {};
+}
+
+const agentLoops = globalWithLoops._agentLoops;
+const abortControllers = globalWithLoops._abortControllers;
+
+const WORKSPACE_BASE = path.join(process.cwd(), 'agent_workspace');
+
+export function getAgentLoopStatus(ideaId: string): LoopStatus {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid Idea ID format');
+  }
+
+  // Ensure workspace folder exists
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const historyPath = path.join(workspacePath, 'prompthistory.md');
+  
+  let history = '';
+  if (fs.existsSync(historyPath)) {
+    history = fs.readFileSync(historyPath, 'utf8');
+  }
+
+  let filesCreated: string[] = [];
+  if (fs.existsSync(workspacePath)) {
+    filesCreated = fs.readdirSync(workspacePath).filter(file => !file.startsWith('.'));
+  }
+
+  const existing = agentLoops[ideaId];
+  if (existing) {
+    existing.history = history;
+    existing.filesCreated = filesCreated;
+    return existing;
+  }
+
+  const defaultStatus: LoopStatus = {
+    ideaId,
+    status: 'idle',
+    iteration: 0,
+    maxIterations: 5,
+    logs: ['Agent Loop system initialized. Ready to launch.'],
+    ideOpened: false,
+    filesCreated,
+    history
+  };
+
+  agentLoops[ideaId] = defaultStatus;
+  return defaultStatus;
+}
+
+export function stopAgentLoop(ideaId: string) {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid Idea ID format');
+  }
+  abortControllers[ideaId] = true;
+  if (agentLoops[ideaId]) {
+    agentLoops[ideaId].status = 'stopped';
+    agentLoops[ideaId].logs.push('🛑 [User Triggered Kill Switch] Agent Loop stopped immediately.');
+  }
+
+  // Also write a kill.lock file in the workspace directory if it exists, to stop any running local terminal agent loop instantly
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  if (fs.existsSync(workspacePath)) {
+    try {
+      fs.writeFileSync(path.join(workspacePath, 'kill.lock'), 'STOP', 'utf8');
+    } catch (e) {
+      console.error('Failed to write kill.lock:', e);
+    }
+  }
+}
+
+export function appendLog(ideaId: string, message: string) {
+  const status = getAgentLoopStatus(ideaId);
+  const timestamp = new Date().toLocaleTimeString();
+  status.logs.push(`[${timestamp}] ${message}`);
+  console.log(`[AgentLoop ${ideaId}] ${message}`);
+}
+
+// Safely open the IDE using standard sanitized environment variables or safe command executions
+export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): boolean {
+  if (!validateId(ideaId)) {
+    return false;
+  }
+
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  
+  // Verify directory exists
+  if (!fs.existsSync(workspacePath)) {
+    return false;
+  }
+
+  // Security check: Only run child_process when executed locally.
+  // We identify cloud serverless/hosting environments specifically to support local production-mode testing.
+  const isCloudHost = 
+    process.env.VERCEL === '1' || 
+    process.env.VERCEL === 'true' || 
+    !!process.env.VERCEL || 
+    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
+    !!process.env.NETLIFY || 
+    !!process.env.RENDER || 
+    !!process.env.FLY_APP_NAME || 
+    !!process.env.HEROKU_APP_ID || 
+    process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
+
+  if (isCloudHost) {
+    appendLog(ideaId, `⚠️ Cloud host detected. IDE launch command skipped for safety.`);
+    return false;
+  }
+
+  let cmd = '';
+  if (process.platform === 'darwin') {
+    if (ide === 'cursor') {
+      cmd = `cursor "${workspacePath}" 2>/dev/null || open -a "Cursor" "${workspacePath}"`;
+    } else if (ide === 'vscode') {
+      cmd = `code "${workspacePath}" 2>/dev/null || open -a "Visual Studio Code" "${workspacePath}"`;
+    } else {
+      cmd = `open "${workspacePath}"`;
+    }
+  } else if (process.platform === 'win32') {
+    if (ide === 'cursor') {
+      cmd = `cursor "${workspacePath}"`;
+    } else if (ide === 'vscode') {
+      cmd = `code "${workspacePath}"`;
+    } else {
+      cmd = `explorer "${workspacePath}"`;
+    }
+  } else {
+    // Linux/Other
+    if (ide === 'cursor') {
+      cmd = `cursor "${workspacePath}"`;
+    } else if (ide === 'vscode') {
+      cmd = `code "${workspacePath}"`;
+    } else {
+      cmd = `xdg-open "${workspacePath}"`;
+    }
+  }
+
+  appendLog(ideaId, `🚀 Launching local IDE (${ide}) targeting workspace: ${workspacePath}`);
+  exec(cmd, (err) => {
+    if (err) {
+      appendLog(ideaId, `⚠️ Failed to open local IDE: ${err.message}. (Is "${ide}" command-line launcher installed in PATH?)`);
+    } else {
+      appendLog(ideaId, `✅ IDE "${ide}" successfully opened.`);
+      if (agentLoops[ideaId]) {
+        agentLoops[ideaId].ideOpened = true;
+      }
+    }
+  });
+
+  return true;
+}
+
+export async function runAgentLoop(
+  ideaId: string,
+  ideaTitle: string,
+  ideaDesc: string,
+  ideToOpen?: 'vscode' | 'cursor' | 'kiro'
+) {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid ID');
+  }
+
+  // Stop any running loop first
+  stopAgentLoop(ideaId);
+  
+  // Reset Abort Controller
+  abortControllers[ideaId] = false;
+
+  const status: LoopStatus = agentLoops[ideaId] = {
+    ideaId,
+    status: 'running',
+    iteration: 0,
+    maxIterations: 5,
+    logs: [],
+    ideOpened: false,
+    filesCreated: [],
+    history: ''
+  };
+
+  appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
+
+  // Ensure workspace exists
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  if (!fs.existsSync(WORKSPACE_BASE)) {
+    fs.mkdirSync(WORKSPACE_BASE, { recursive: true });
+  }
+  if (!fs.existsSync(workspacePath)) {
+    fs.mkdirSync(workspacePath, { recursive: true });
+    appendLog(ideaId, `📁 Created workspace directory: ./agent_workspace/idea_${ideaId}`);
+  }
+
+  // Ensure we delete any existing kill-switch lock on fresh loop start
+  const killLockPath = path.join(workspacePath, 'kill.lock');
+  if (fs.existsSync(killLockPath)) {
+    try {
+      fs.unlinkSync(killLockPath);
+    } catch {}
+  }
+
+  // Generate .vscode/tasks.json for seamless hands-free launch in VS Code/Cursor
+  const vscodeDirPath = path.join(workspacePath, '.vscode');
+  if (!fs.existsSync(vscodeDirPath)) {
+    fs.mkdirSync(vscodeDirPath, { recursive: true });
+  }
+
+  const tasksJsonContent = `{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Auto-Start AI Build Agent",
+      "type": "shell",
+      "command": "node agent_loop.js",
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}`;
+
+  fs.writeFileSync(path.join(vscodeDirPath, 'tasks.json'), tasksJsonContent, 'utf8');
+  appendLog(ideaId, `📄 Generated .vscode/tasks.json for auto-run on folder open`);
+
+  // Generate local .env containing OpenAI credentials for the local agent script to leverage securely
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
+  fs.writeFileSync(path.join(workspacePath, '.env'), `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\n`, 'utf8');
+
+  // Generate local .gitignore to protect key leaks or node_modules
+  const gitignoreContent = `.env\nnode_modules/\nkill.lock\ndist/\nbuild/\n`;
+  fs.writeFileSync(path.join(workspacePath, '.gitignore'), gitignoreContent, 'utf8');
+
+  // Generate local standalone zero-dependency self-prompting builder runner script
+  const agentScriptContent = `const fs = require('fs');
+const path = require('path');
+const https = require('https');
+const { execSync } = require('child_process');
+
+// Color helpers for terminal output
+const colors = {
+  reset: "\\x1b[0m",
+  green: "\\x1b[32m",
+  yellow: "\\x1b[33m",
+  blue: "\\x1b[34m",
+  cyan: "\\x1b[36m",
+  red: "\\x1b[31m",
+  bold: "\\x1b[1m"
+};
+
+console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\`);
+console.log(\`  🚀 \${colors.bold}\${colors.green}Welcome to the AI Marketplace Local Agent Loop!\${colors.reset}\`);
+console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\\n\`);
+
+// 1. Load environment variables
+let apiKey = '';
+let apiBase = 'https://api.openai.com/v1';
+
+if (fs.existsSync('.env')) {
+  const envContent = fs.readFileSync('.env', 'utf8');
+  envContent.split('\\n').forEach(line => {
+    const parts = line.split('=');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const val = parts.slice(1).join('=').trim();
+      if (key === 'OPENAI_API_KEY') apiKey = val;
+      if (key === 'OPENAI_API_BASE') apiBase = val;
+    }
+  });
+}
+
+if (!apiKey) {
+  console.log(\`\${colors.red}⚠️  Error: OPENAI_API_KEY is not defined in .env! Please configure it to run the agent loop.\${colors.reset}\`);
+  process.exit(1);
+}
+
+// Ensure lockfiles are cleared on start
+if (fs.existsSync('kill.lock')) {
+  try { fs.unlinkSync('kill.lock'); } catch(e){}
+}
+
+// 2. HTTPS Request Promise wrapper
+function callAI(messages) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(\`\${apiBase}/chat/completions\`);
+    const postData = JSON.stringify({
+      model: 'gpt-4o',
+      messages: messages,
+      temperature: 0.3
+    });
+
+    const options = {
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname + url.search,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': \`Bearer \${apiKey}\`,
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed.choices[0].message.content);
+          } catch (e) {
+            reject(new Error(\`Failed to parse LLM JSON: \${e.message}\`));
+          }
+        } else {
+          reject(new Error(\`LLM API returned error status \${res.statusCode}: \${data}\`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
+// Main Runner
+async function main() {
+  const goalContent = fs.existsSync('goal.md') ? fs.readFileSync('goal.md', 'utf8') : 'No goal defined.';
+  
+  let conversationHistory = [
+    {
+      role: 'system',
+      content: \`You are "The Builder-Developer AI", an elite full-stack engineer and automation script.
+Your task is to write actual WORKING code files inside this local workspace folder to implement the project described in goal.md.
+
+RULES:
+1. Examine the current workspace files provided by the user.
+2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
+3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
+4. Output your file creations or edits using this EXACT syntax:
+<<<< FILE: filename.js
+[exact content of the file]
+>>>>
+
+5. You can create multiple files in a single turn.
+6. When the codebase is fully implemented, error-free, and compiles perfectly, end your response with the exact phrase: "STATUS: COMPLETE"
+
+Analyze the goals, create a complete folder structure, write package.json, src files, configs, tests, etc.\`
+    }
+  ];
+
+  let testErrorLog = "";
+
+  for (let iteration = 1; iteration <= 5; iteration++) {
+    // Check for kill switch file
+    if (fs.existsSync('kill.lock')) {
+      console.log(\`\\n\${colors.red}\${colors.bold}🛑 [Kill-Switch Detected] Stopping the Local Agent Loop immediately.\${colors.reset}\`);
+      break;
+    }
+
+    console.log(\`\\n\${colors.bold}\${colors.yellow}==================================================\${colors.reset}\`);
+    console.log(\`⚙️  \${colors.bold}\${colors.cyan}Local Agent Loop - Iteration \${iteration} of 5\${colors.reset}\`);
+    console.log(\`\${colors.bold}\${colors.yellow}==================================================\${colors.reset}\`);
+
+    // Scan workspace files
+    const files = fs.readdirSync('.')
+      .filter(f => !f.startsWith('.') && f !== 'node_modules' && f !== 'agent_loop.js' && f !== 'kill.lock');
+    
+    let currentWorkspaceState = "Current Local Files:\\n";
+    files.forEach(file => {
+      try {
+        const stats = fs.statSync(file);
+        if (stats.isFile()) {
+          const content = fs.readFileSync(file, 'utf8');
+          currentWorkspaceState += \`\\n--- FILE: \${file} ---\\n\${content}\\n--- END FILE ---\\n\`;
+        }
+      } catch (e) {}
+    });
+
+    let iterationPrompt = \`Goal Description:\\n\${goalContent}\\n\\n\${currentWorkspaceState}\`;
+    if (testErrorLog) {
+      iterationPrompt += \`\\n\\n⚠️ PREVIOUS BUILD/COMPILE ERRORS:\\n\${testErrorLog}\\n\\nPlease fix these compilation/build errors in this iteration!\`;
+      testErrorLog = ""; // reset
+    }
+
+    conversationHistory.push({ role: 'user', content: iterationPrompt });
+
+    console.log(\`🤖 Calling AI Developer to generate/refine code...\\n\`);
+    try {
+      const responseText = await callAI(conversationHistory);
+      conversationHistory.push({ role: 'assistant', content: responseText });
+
+      // Parse file blocks
+      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\\\-\\/\\\\.]+)\\n([\\s\\S]*?)\\n>>>>/g;
+      let match;
+      let filesUpdated = [];
+
+      while ((match = fileRegex.exec(responseText)) !== null) {
+        const filePath = match[1].trim();
+        const content = match[2];
+
+        // Ensure subdirectories exist
+        const dirPath = path.dirname(filePath);
+        if (dirPath && dirPath !== '.' && !fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, content, 'utf8');
+        filesUpdated.push(filePath);
+        console.log(\`✍️  \${colors.green}Created/Updated file:\${colors.reset} \${filePath}\`);
+      }
+
+      if (filesUpdated.length === 0) {
+        console.log(\`ℹ️  No new code file writes detected in this turn.\`);
+      }
+
+      // Check if complete
+      if (responseText.includes("STATUS: COMPLETE")) {
+        console.log(\`\\n🎉 \${colors.bold}\${colors.green}Consensus Achieved! AI Developer marked the code as COMPLETE!\${colors.reset}\`);
+        break;
+      }
+
+      // Auto-build / Compile verification step
+      if (fs.existsSync('package.json')) {
+        console.log(\`⚙️  package.json found. Running build/compile test...\`);
+        try {
+          // If node_modules doesn't exist, run npm install first
+          if (!fs.existsSync('node_modules')) {
+            console.log("📦 Installing npm dependencies...");
+            execSync('npm install', { stdio: 'inherit' });
+          }
+          
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (pkg.scripts && pkg.scripts.build) {
+            console.log("🛠  Compiling build: running 'npm run build'...");
+            execSync('npm run build', { stdio: 'inherit' });
+            console.log(\`✅ \${colors.green}Build compiled successfully without errors!\${colors.reset}\`);
+          } else {
+            console.log("ℹ️  No build script found in package.json. Testing execution with 'node index.js' or main...");
+            const mainFile = pkg.main || 'index.js';
+            if (fs.existsSync(mainFile)) {
+              execSync(\`node -c \${mainFile}\`, { stdio: 'inherit' });
+              console.log(\`✅ \${colors.green}Syntax check passed for main file: \${mainFile}\${colors.reset}\`);
+            }
+          }
+        } catch (execErr) {
+          console.log(\`\${colors.red}⚠️  Build / Syntax test failed. Logging error for AI correction...\${colors.reset}\`);
+          testErrorLog = execErr.message;
+        }
+      }
+
+    } catch (apiErr) {
+      console.log(\`\${colors.red}❌ Error calling AI: \${apiErr.message}\${colors.reset}\`);
+      break;
+    }
+  }
+
+  console.log(\`\\n\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\`);
+  console.log(\`🏁 \${colors.bold}\${colors.green}Agent Loop Finished. Inspect your files in this editor!\${colors.reset}\`);
+  console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\\n\`);
+}
+
+main().catch(console.error);`;
+
+  fs.writeFileSync(path.join(workspacePath, 'agent_loop.js'), agentScriptContent, 'utf8');
+  appendLog(ideaId, `📄 Scaffolded zero-dependency builder agent script: agent_loop.js`);
+
+  // Scaffold initial files
+  const scaffoldFiles = {
+    'goal.md': `# High-Level Goals: ${ideaTitle}\n\n${ideaDesc}\n\n## Objective\nTo construct and verify a complete technical blueprint, requirements specification, and architecture blueprint matching the idea's core vision.`,
+    'architecture.md': `# Architecture Design Blueprint\n\n*(Pending AI Agent Loop Generation)*`,
+    'requirements.md': `# Business & Functional Requirements\n\n*(Pending AI Agent Loop Generation)*`,
+    'README.md': `# Workspace: ${ideaTitle}\n\nThis workspace is governed by an automated Critic-Builder loop.\n\nVS Code/Cursor will automatically run \`node agent_loop.js\` to install dependencies, self-prompt and write code, and verify project compilation up to 5 times.`,
+  };
+
+  for (const [filename, content] of Object.entries(scaffoldFiles)) {
+    const filePath = path.join(workspacePath, filename);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, content, 'utf8');
+      appendLog(ideaId, `📄 Scaffolded initial file: ${filename}`);
+    }
+  }
+
+  // Initialize or reset prompthistory.md
+  const historyPath = path.join(workspacePath, 'prompthistory.md');
+  const initialHistory = `# AI self-prompting Loop History\n**Project:** ${ideaTitle}\n**Launch Timestamp:** ${new Date().toLocaleString()}\n\n---\n\n`;
+  fs.writeFileSync(historyPath, initialHistory, 'utf8');
+
+  // Trigger local IDE launch if specified
+  if (ideToOpen) {
+    launchIDE(ideaId, ideToOpen);
+  }
+
+  // Start background loop runner process
+  void (async () => {
+    try {
+      while (status.iteration < status.maxIterations) {
+        if (abortControllers[ideaId]) {
+          appendLog(ideaId, `🛑 Agent Loop execution stopped by user.`);
+          status.status = 'stopped';
+          return;
+        }
+
+        status.iteration++;
+        appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
+
+        // Read all current files to supply as context
+        const currentFilesContent = fs.readdirSync(workspacePath)
+          .filter(f => f.endsWith('.md') || f.endsWith('.txt') || f.endsWith('.json') || f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.ts'))
+          .map(filename => {
+            const content = fs.readFileSync(path.join(workspacePath, filename), 'utf8');
+            return `### FILE: ${filename}\n\`\`\`\n${content}\n\`\`\``;
+          })
+          .join('\n\n');
+
+        // Step 1: BUILDER PERSONA
+        appendLog(ideaId, `🤖 Persona A (The Builder) is drafting updates...`);
+        const builderPrompt = `You are "The Builder AI", an expert software architect, requirements engineer, and software developer.
+Your goal is to build out a complete, production-grade technical design, requirements specification, and architecture blueprint inside this workspace to fulfill:
+Project Title: ${ideaTitle}
+Project Goal: ${ideaDesc}
+
+Here is the current state of files in the workspace:
+${currentFilesContent}
+
+Analyze these files and any critique provided previously. Rewrite or add content to these files to make them complete, robust, and professional.
+Specify the exact file paths and file contents that need to be created or overwritten.
+
+You MUST format your output as a series of instructions containing the file contents to write, like this:
+<<<< FILE: filename.md
+[New file content here]
+>>>>
+
+Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
+
+        const builderResponse = await openai.chat.completions.create({
+          model: MODEL_NAME,
+          messages: [
+            { role: 'system', content: 'You are an elite developer and software builder.' },
+            { role: 'user', content: builderPrompt }
+          ],
+          temperature: 0.2
+        });
+
+        const builderText = builderResponse.choices[0]?.message?.content || '';
+
+        // Parse and apply files written by the Builder
+        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.]+)\n([\s\S]*?)\n>>>>/g;
+        let match;
+        const filesUpdatedThisTurn: string[] = [];
+
+        while ((match = fileRegex.exec(builderText)) !== null) {
+          const filename = match[1].trim();
+          const content = match[2];
+          
+          if (filename && validateId(filename.replace('.', '_'))) {
+            fs.writeFileSync(path.join(workspacePath, filename), content, 'utf8');
+            filesUpdatedThisTurn.push(filename);
+            appendLog(ideaId, `✍️ Builder AI updated: ${filename}`);
+          }
+        }
+
+        if (filesUpdatedThisTurn.length === 0) {
+          appendLog(ideaId, `ℹ️ Builder suggested modifications but didn't write formatted file blocks. Saving output to raw logs.`);
+        }
+
+        // Step 2: CRITIC PERSONA
+        appendLog(ideaId, `🕵️ Persona B (The Critic) is auditing files against targets...`);
+        
+        // Reload files content to give to the Critic
+        const updatedFilesContent = fs.readdirSync(workspacePath)
+          .filter(f => f.endsWith('.md') || f.endsWith('.txt') || f.endsWith('.json') || f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.ts'))
+          .map(filename => {
+            const content = fs.readFileSync(path.join(workspacePath, filename), 'utf8');
+            return `### FILE: ${filename}\n\`\`\`\n${content}\n\`\`\``;
+          })
+          .join('\n\n');
+
+        const criticPrompt = `You are "The Critic AI", an elite security analyst, business auditor, and technical consensus evaluator.
+Your goal is to inspect the software design artifacts and source files in this workspace to ensure they are complete, secure, logically consistent, and fulfill the project's original vision perfectly.
+
+Workspace Files:
+${updatedFilesContent}
+
+Critique the workspace meticulously. Check for security vulnerabilities (e.g., OWASP top 10), missing business requirements, incomplete architecture, or gaps in implementation.
+If everything is perfect and meets the goal of the project absolutely with no further revisions needed, output the exact phrase: "STATUS: APPROVED".
+Otherwise, provide constructive criticisms and detailed step-by-step correction instructions for "The Builder AI" to fix in the next iteration.`;
+
+        const criticResponse = await openai.chat.completions.create({
+          model: MODEL_NAME,
+          messages: [
+            { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
+            { role: 'user', content: criticPrompt }
+          ],
+          temperature: 0.1
+        });
+
+        const criticText = criticResponse.choices[0]?.message?.content || '';
+        appendLog(ideaId, `🕵️ Critic Audit completed. Recommending updates.`);
+
+        const isApproved = criticText.includes('STATUS: APPROVED');
+
+        // Record history
+        const iterationHistory = `## Iteration ${status.iteration} Audit & Design Log\n` +
+          `**Timestamp:** ${new Date().toLocaleString()}\n` +
+          `### Builder Output Summary:\nUpdated files: ${filesUpdatedThisTurn.join(', ') || 'None'}\n\n` +
+          `### Critic Review & Recommendation:\n${criticText}\n\n` +
+          `---\n\n`;
+
+        fs.appendFileSync(historyPath, iterationHistory, 'utf8');
+
+        if (isApproved) {
+          appendLog(ideaId, `🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.`);
+          status.status = 'completed';
+          return;
+        }
+      }
+
+      appendLog(ideaId, `🏁 Max iterations (${status.maxIterations}) completed. specifications generated.`);
+      status.status = 'completed';
+    } catch (err: unknown) {
+      const error = err as Error;
+      appendLog(ideaId, `❌ Error in Agent Loop execution: ${error?.message || error}`);
+      status.status = 'failed';
+      status.error = error?.message || 'Unknown runner error';
+    }
+  })();
+}

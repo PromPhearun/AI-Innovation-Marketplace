@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { LayoutWrapper } from '@/components/layout-wrapper';
+import AgentLoopPanel from '@/components/agent-loop-panel';
 import { useUser } from '@/context/user-context';
 import { useParams, useRouter } from 'next/navigation';
 import { Idea, Vote, Comment, AIReview, PRD, Roadmap, ClickUpSync } from '@/types';
@@ -238,7 +239,7 @@ export default function IdeaDetailsPage() {
   const [loading, setLoading] = useState(true);
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'evaluation' | 'prd' | 'roadmap' | 'syndication'>('evaluation');
+  const [activeTab, setActiveTab] = useState<'evaluation' | 'prd' | 'roadmap' | 'syndication' | 'agentLoop'>('evaluation');
 
   // Integration details states
   const [prd, setPrd] = useState<PRD | null>(null);
@@ -908,6 +909,20 @@ export default function IdeaDetailsPage() {
             </svg>
             Enterprise Syndication
           </button>
+
+          <button
+            onClick={() => setActiveTab('agentLoop')}
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'agentLoop'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
+            }`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 6H16" />
+            </svg>
+            AI Agent Loop
+          </button>
         </div>
 
         {/* Dynamic Content Switching Panels */}
@@ -1256,6 +1271,15 @@ export default function IdeaDetailsPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* AI AGENT LOOP TAB */}
+            {activeTab === 'agentLoop' && (
+              <AgentLoopPanel
+                ideaId={id}
+                ideaTitle={idea.title}
+                ideaDescription={idea.description}
+              />
             )}
 
             {/* ENTERPRISE SYNDICATION TAB */}

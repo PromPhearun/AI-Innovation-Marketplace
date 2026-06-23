@@ -67,10 +67,14 @@ export default function SubmitIdeaPage() {
 
         if (res.ok) {
           const data = await res.json();
+          interface SimilarIdeaItem {
+            idea: { id: string; title: string };
+            score: number;
+          }
           // Filter out low scores, only show ideas with >= 30% similarity for high-fidelity alerts
-          const highlySimilar = (data.similarIdeas || [])
-            .filter((item: any) => item.score >= 30)
-            .map((item: any) => ({
+          const highlySimilar = ((data.similarIdeas || []) as SimilarIdeaItem[])
+            .filter((item) => item.score >= 30)
+            .map((item) => ({
               id: item.idea.id,
               title: item.idea.title,
               score: item.score,
