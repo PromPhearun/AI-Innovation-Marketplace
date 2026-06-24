@@ -111,12 +111,45 @@ export default function AgentLoopPanel({
     }
   };
 
+  // Trigger IDE launch
+  const handleLaunchIDE = async () => {
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'launch_ide',
+          ide: selectedIde,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStatus(data.status);
+      } else {
+        alert('Failed to launch local IDE.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   // Download complete workspace
   const handleDownloadWorkspace = () => {
     window.location.href = `/api/ideas/${ideaId}/agent-loop/download`;
   };
 
   const getStatusBadge = (statusStr: string) => {
+    if (status?.consensusReached) {
+      return (
+        <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-black text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 rounded-full uppercase tracking-wider animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          Consensus Reached 🎉
+        </span>
+      );
+    }
     switch (statusStr) {
       case 'running':
         return (
@@ -222,6 +255,18 @@ export default function AgentLoopPanel({
                 <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
                 Stop Loop (Manual Kill Switch)
               </button>
+            ) : status?.consensusReached ? (
+              <button
+                type="button"
+                onClick={handleLaunchIDE}
+                disabled={isActionLoading}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 animate-fade-in"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Open Workspace in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
+              </button>
             ) : (
               <button
                 type="button"
@@ -252,23 +297,43 @@ export default function AgentLoopPanel({
           </div>
         </div>
 
-        {/* MANUAL TERMINAL TRIGGER INFO CARD */}
+        {/* DYNAMIC TIP / INTEGRATION CARD */}
         {status && status.status !== 'idle' && (
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-4 rounded-xl flex items-start gap-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200/90 shadow-sm animate-fade-in">
-            <span className="text-base mt-0.5 select-none">💡</span>
-            <div className="space-y-1">
-              <strong className="font-extrabold uppercase tracking-wide text-[10px] text-amber-900 dark:text-amber-300">
-                Tip: Run the loop locally anytime
-              </strong>
-              <p>
-                If you prefer not to wait for another 5 cycles in the browser, or if your local workspace was blocked by IDE security settings, you can manually trigger code writing directly in your IDE:
-              </p>
-              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-2.5 rounded-lg border border-slate-800 mt-2 select-all shadow-inner flex items-center justify-between">
-                <span>node agent_loop.js</span>
-                <span className="text-[9px] text-slate-500 font-sans tracking-wide uppercase select-none">Run in IDE terminal</span>
+          status.consensusReached ? (
+            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 p-4 rounded-xl flex items-start gap-3 text-xs leading-relaxed text-emerald-800 dark:text-emerald-200/90 shadow-sm animate-fade-in">
+              <span className="text-base mt-0.5 select-none">🎉</span>
+              <div className="space-y-1">
+                <strong className="font-extrabold uppercase tracking-wide text-[10px] text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                  Cline Integration Ready (Recommended)
+                </strong>
+                <p>
+                  Specifications have been officially <strong>APPROVED</strong>! A custom <code>.clinerules</code> file has been generated in your workspace. Simply open this workspace in Cursor or VS Code, launch Cline, and say:
+                </p>
+                <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-3 rounded-lg border border-slate-800 mt-2 shadow-inner leading-relaxed">
+                  <span className="text-emerald-400">{'"Build this project based on the approved specifications and .clinerules"'}</span>
+                </div>
+                <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-1">
+                  Cline will automatically read the approved architecture, requirements, and goal documents to write complete, error-free code hands-free!
+                </p>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-4 rounded-xl flex items-start gap-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200/90 shadow-sm animate-fade-in">
+              <span className="text-base mt-0.5 select-none">💡</span>
+              <div className="space-y-1">
+                <strong className="font-extrabold uppercase tracking-wide text-[10px] text-amber-900 dark:text-amber-300">
+                  Tip: Run the loop locally anytime
+                </strong>
+                <p>
+                  If you prefer not to wait for another 5 cycles in the browser, or if your local workspace was blocked by IDE security settings, you can manually trigger code writing directly in your IDE:
+                </p>
+                <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-2.5 rounded-lg border border-slate-800 mt-2 select-all shadow-inner flex items-center justify-between">
+                  <span>node agent_loop.js</span>
+                  <span className="text-[9px] text-slate-500 font-sans tracking-wide uppercase select-none">Run in IDE terminal</span>
+                </div>
+              </div>
+            </div>
+          )
         )}
 
         {/* PROGRESS METER */}

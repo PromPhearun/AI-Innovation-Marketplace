@@ -5,6 +5,7 @@ import {
   runAgentLoop,
   stopAgentLoop,
   validateId,
+  launchIDE,
 } from '@/lib/ai/agent-loop-runner';
 
 export async function GET(
@@ -60,6 +61,11 @@ export async function POST(
       stopAgentLoop(id);
       const status = getAgentLoopStatus(id);
       return NextResponse.json({ message: 'Agent Loop stopped', status });
+    } else if (action === 'launch_ide') {
+      const targetIde = ide || 'vscode';
+      const success = launchIDE(id, targetIde);
+      const status = getAgentLoopStatus(id);
+      return NextResponse.json({ message: success ? 'IDE opened' : 'Failed to open IDE or skipped', status });
     } else {
       return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 });
     }

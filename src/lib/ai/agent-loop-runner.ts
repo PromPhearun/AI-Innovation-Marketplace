@@ -51,6 +51,7 @@ export interface LoopStatus {
   error?: string;
   filesCreated: string[];
   history: string; // content of prompthistory.md
+  consensusReached?: boolean;
 }
 
 // In-memory global store to hold loop statuses across API hot-reloads
@@ -108,10 +109,13 @@ export function getAgentLoopStatus(ideaId: string): LoopStatus {
     filesCreated = getFilesRecursively(workspacePath).map(f => f.relativePath);
   }
 
+  const consensusReached = history.includes('STATUS: APPROVED');
+
   const existing = agentLoops[ideaId];
   if (existing) {
     existing.history = history;
     existing.filesCreated = filesCreated;
+    existing.consensusReached = consensusReached;
     return existing;
   }
 
@@ -123,7 +127,8 @@ export function getAgentLoopStatus(ideaId: string): LoopStatus {
     logs: ['Agent Loop system initialized. Ready to launch.'],
     ideOpened: false,
     filesCreated,
-    history
+    history,
+    consensusReached
   };
 
   agentLoops[ideaId] = defaultStatus;
@@ -293,6 +298,33 @@ export async function runAgentLoop(
     appendLog(ideaId, `📁 Created workspace directory: ./agent_workspace/idea_${ideaId}`);
   }
 
+  // Generate .clinerules if consensus was already reached previously
+  const historyPath = path.join(workspacePath, 'prompthistory.md');
+  const isAlreadyApproved = fs.existsSync(historyPath) && fs.readFileSync(historyPath, 'utf8').includes('STATUS: APPROVED');
+  if (isAlreadyApproved) {
+    status.consensusReached = true;
+    const clinerulesPath = path.join(workspacePath, '.clinerules');
+    if (!fs.existsSync(clinerulesPath)) {
+      const clinerulesContent = `# Cline Project Implementation Rules
+
+The specifications for this project have been officially APPROVED by the Critic AI!
+
+Your task is to automatically build out the complete codebase inside this workspace to implement the project described in \`goal.md\` using the approved requirements (\`requirements.md\`) and architecture (\`architecture.md\`).
+
+## 🛠️ Step-by-Step Implementation Instructions
+1. Analyze \`goal.md\`, \`requirements.md\`, and \`architecture.md\` carefully.
+2. Initialize the project (e.g., configure \`package.json\`, set up folders).
+3. Write fully complete, production-ready, highly secure code for all components.
+4. Ensure there are absolutely no placeholders or TODO comments.
+5. Create a verification script or run tests to confirm everything builds and runs perfectly.
+`;
+      try {
+        fs.writeFileSync(clinerulesPath, clinerulesContent, 'utf8');
+        appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
+      } catch {}
+    }
+  }
+
   // Ensure we delete any existing kill-switch lock on fresh loop start
   const killLockPath = path.join(workspacePath, 'kill.lock');
   if (fs.existsSync(killLockPath)) {
@@ -437,6 +469,15 @@ function callAI(messages) {
 
 // Main Runner
 async function main() {
+  // Pre-flight consensus check
+  const historyContent = fs.existsSync('prompthistory.md') ? fs.readFileSync('prompthistory.md', 'utf8') : '';
+  if (!historyContent.includes('STATUS: APPROVED')) {
+    console.log(\`\\n\${colors.red}\${colors.bold}⚠️  Access Denied: Specifications must be APPROVED first!\${colors.reset}\`);
+    console.log(\`Please run the Spec Engine in the UI first until Persona B (The Critic) approves the specification.\`);
+    console.log(\`Once approved, consensus is officially reached, and this local code-writing agent will run.\\n\`);
+    process.exit(1);
+  }
+
   const goalContent = fs.existsSync('goal.md') ? fs.readFileSync('goal.md', 'utf8') : 'No goal defined.';
   
   let conversationHistory = [
@@ -600,7 +641,6 @@ main().catch(console.error);`;
   }
 
   // Initialize or append prompthistory.md
-  const historyPath = path.join(workspacePath, 'prompthistory.md');
   if (fs.existsSync(historyPath)) {
     const sessionHeader = `\n\n# --- Starting Another Loop Cycle (Timestamp: ${new Date().toLocaleString()}) ---\n\n`;
     fs.appendFileSync(historyPath, sessionHeader, 'utf8');
@@ -744,6 +784,33 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
         if (isApproved) {
           appendLog(ideaId, `🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.`);
           status.status = 'completed';
+          status.consensusReached = true;
+
+          // Generate .clinerules to guide Cline
+          const clinerulesPath = path.join(workspacePath, '.clinerules');
+          const clinerulesContent = `# Cline Project Implementation Rules
+
+The specifications for this project have been officially APPROVED by the Critic AI!
+
+Your task is to automatically build out the complete codebase inside this workspace to implement the project described in \`goal.md\` using the approved requirements (\`requirements.md\`) and architecture (\`architecture.md\`).
+
+## 🛠️ Step-by-Step Implementation Instructions
+1. Analyze \`goal.md\`, \`requirements.md\`, and \`architecture.md\` carefully.
+2. Initialize the project (e.g., configure \`package.json\`, set up folders).
+3. Write fully complete, production-ready, highly secure code for all components.
+4. Ensure there are absolutely no placeholders or TODO comments.
+5. Create a verification script or run tests to confirm everything builds and runs perfectly.
+`;
+          try {
+            fs.writeFileSync(clinerulesPath, clinerulesContent, 'utf8');
+            appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
+          } catch (e) {
+            appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
+          }
+
+          if (ideToOpen) {
+            launchIDE(ideaId, ideToOpen);
+          }
           return;
         }
       }

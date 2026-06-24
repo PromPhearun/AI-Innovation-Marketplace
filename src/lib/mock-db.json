@@ -44,11 +44,12 @@
       "description": "Analyze trading partner behavioral history, compliance updates, and automated news screening to flag high-risk business partners before manual auditing.",
       "department": "Compliance",
       "category": "Risk Management",
-      "status": "under_review",
+      "status": "approved",
       "innovationScore": 92,
       "expectedBenefits": "Real-time alert system to reduce legal and financial compliance risk exposure.",
       "createdBy": "user_1",
-      "createdAt": "2026-06-13T03:19:53.355Z"
+      "createdAt": "2026-06-13T03:19:53.355Z",
+      "managerComment": ""
     },
     {
       "id": "idea_3",
