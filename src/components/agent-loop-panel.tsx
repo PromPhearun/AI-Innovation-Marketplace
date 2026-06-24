@@ -256,17 +256,32 @@ export default function AgentLoopPanel({
                 Stop Loop (Manual Kill Switch)
               </button>
             ) : status?.consensusReached ? (
-              <button
-                type="button"
-                onClick={handleLaunchIDE}
-                disabled={isActionLoading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 animate-fade-in"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                </svg>
-                Open Workspace in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
-              </button>
+              <div className="flex flex-col gap-2.5 animate-fade-in">
+                <button
+                  type="button"
+                  onClick={handleLaunchIDE}
+                  disabled={isActionLoading}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                  Open Workspace in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleStartLoop}
+                  disabled={isActionLoading}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Run Agent Code Builder (5 Cycles)
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
@@ -307,7 +322,7 @@ export default function AgentLoopPanel({
                   Cline Integration Ready (Recommended)
                 </strong>
                 <p>
-                  Specifications have been officially <strong>APPROVED</strong>! A custom <code>.clinerules</code> file has been generated in your workspace. Simply open this workspace in Cursor or VS Code, launch Cline, and say:
+                  Specifications have been officially <strong>APPROVED</strong>! A custom <code>.clinerules</code> file has been generated in your workspace. Simply open this workspace in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}, launch Cline, and say:
                 </p>
                 <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-3 rounded-lg border border-slate-800 mt-2 shadow-inner leading-relaxed">
                   <span className="text-emerald-400">{'"Build this project based on the approved specifications and .clinerules"'}</span>

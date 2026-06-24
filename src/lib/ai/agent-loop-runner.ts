@@ -198,32 +198,53 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
   const rootFile = path.join(workspacePath, 'README.md');
   if (process.platform === 'darwin') {
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}" "${rootFile}" 2>/dev/null || open -b "com.todesktop.230313mzlgl6u42" "${workspacePath}" "${rootFile}" 2>/dev/null || open -a "Cursor" "${workspacePath}" "${rootFile}"`;
+      // 1. Try PATH command (opens workspace folder, sleeps 1s, then opens README.md inside that new workspace window)
+      // 2. Try macOS bundled CLI path directly
+      // 3. Try open -b (bundle ID)
+      // 4. Try open -a (app name)
+      cmd = `(cursor "${workspacePath}" && sleep 1 && cursor "${rootFile}") 2>/dev/null || ` +
+            `("/Applications/Cursor.app/Contents/Resources/app/bin/cursor" "${workspacePath}" 2>/dev/null && sleep 1 && "/Applications/Cursor.app/Contents/Resources/app/bin/cursor" "${rootFile}" 2>/dev/null) || ` +
+            `(open -b "com.todesktop.230313mzl4w4u92" "${workspacePath}" && sleep 1 && open -b "com.todesktop.230313mzl4w4u92" "${rootFile}") 2>/dev/null || ` +
+            `(open -a "Cursor" "${workspacePath}" && sleep 1 && open -a "Cursor" "${rootFile}")`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}" "${rootFile}" 2>/dev/null || open -a "Visual Studio Code" "${workspacePath}" "${rootFile}"`;
+      // 1. Try PATH command
+      // 2. Try macOS bundled CLI path directly
+      // 3. Try open -b (bundle ID)
+      // 4. Try open -a (app name)
+      cmd = `(code "${workspacePath}" && sleep 1 && code "${rootFile}") 2>/dev/null || ` +
+            `("/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" "${workspacePath}" 2>/dev/null && sleep 1 && "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" "${rootFile}" 2>/dev/null) || ` +
+            `(open -b "com.microsoft.VSCode" "${workspacePath}" && sleep 1 && open -b "com.microsoft.VSCode" "${rootFile}") 2>/dev/null || ` +
+            `(open -a "Visual Studio Code" "${workspacePath}" && sleep 1 && open -a "Visual Studio Code" "${rootFile}")`;
     } else if (ide === 'kiro') {
-      cmd = `open -a "Kiro" "${workspacePath}" "${rootFile}" 2>/dev/null || open "${workspacePath}"`;
+      // 1. Try Kiro's bundled code binary directly
+      // 2. Try kiro in PATH
+      // 3. Try open -b (bundle ID)
+      // 4. Try open -a (app name)
+      cmd = `("/Applications/Kiro.app/Contents/Resources/app/bin/code" "${workspacePath}" 2>/dev/null && sleep 1 && "/Applications/Kiro.app/Contents/Resources/app/bin/code" "${rootFile}" 2>/dev/null) || ` +
+            `(kiro "${workspacePath}" 2>/dev/null && sleep 1 && kiro "${rootFile}" 2>/dev/null) || ` +
+            `(open -b "dev.kiro.desktop" "${workspacePath}" && sleep 1 && open -b "dev.kiro.desktop" "${rootFile}") 2>/dev/null || ` +
+            `(open -a "Kiro" "${workspacePath}" && sleep 1 && open -a "Kiro" "${rootFile}")`;
     } else {
       cmd = `open "${workspacePath}"`;
     }
   } else if (process.platform === 'win32') {
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}" "${rootFile}"`;
+      cmd = `cursor "${workspacePath}" && timeout /t 1 /nobreak >nul && cursor "${rootFile}" || start "" cursor "${workspacePath}" && timeout /t 1 /nobreak >nul && start "" cursor "${rootFile}"`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}" "${rootFile}"`;
+      cmd = `code "${workspacePath}" && timeout /t 1 /nobreak >nul && code "${rootFile}" || start "" code "${workspacePath}" && timeout /t 1 /nobreak >nul && start "" code "${rootFile}"`;
     } else if (ide === 'kiro') {
-      cmd = `kiro "${workspacePath}" "${rootFile}" 2>nul || explorer "${workspacePath}"`;
+      cmd = `kiro "${workspacePath}" && timeout /t 1 /nobreak >nul && kiro "${rootFile}" 2>nul || start "" kiro "${workspacePath}" 2>nul || explorer "${workspacePath}"`;
     } else {
       cmd = `explorer "${workspacePath}"`;
     }
   } else {
     // Linux/Other
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}" "${rootFile}"`;
+      cmd = `cursor "${workspacePath}" && sleep 1 && cursor "${rootFile}"`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}" "${rootFile}"`;
+      cmd = `code "${workspacePath}" && sleep 1 && code "${rootFile}"`;
     } else if (ide === 'kiro') {
-      cmd = `kiro "${workspacePath}" "${rootFile}" 2>/dev/null || xdg-open "${workspacePath}"`;
+      cmd = `kiro "${workspacePath}" 2>/dev/null && sleep 1 && kiro "${rootFile}" 2>/dev/null || xdg-open "${workspacePath}"`;
     } else {
       cmd = `xdg-open "${workspacePath}"`;
     }
@@ -470,14 +491,26 @@ function callAI(messages) {
 
 // Main Runner
 async function main() {
-  // Pre-flight consensus check
-  const historyContent = fs.existsSync('prompthistory.md') ? fs.readFileSync('prompthistory.md', 'utf8') : '';
-  if (!historyContent.includes('STATUS: APPROVED')) {
-    console.log(\`\\n\${colors.red}\${colors.bold}⚠️  Access Denied: Specifications must be APPROVED first!\${colors.reset}\`);
-    console.log(\`Please run the Spec Engine in the UI first until Persona B (The Critic) approves the specification.\`);
-    console.log(\`Once approved, consensus is officially reached, and this local code-writing agent will run.\\n\`);
-    process.exit(1);
+  // Pre-flight consensus check with active polling
+  let approved = false;
+  let printWaitingMsg = true;
+
+  while (!approved) {
+    const historyContent = fs.existsSync('prompthistory.md') ? fs.readFileSync('prompthistory.md', 'utf8') : '';
+    if (historyContent.includes('STATUS: APPROVED')) {
+      approved = true;
+    } else {
+      if (printWaitingMsg) {
+        console.log(\`\\n⏳  \${colors.bold}\${colors.cyan}Waiting for Spec Engine consensus to be APPROVED in the UI...\${colors.reset}\`);
+        console.log(\`Keep this terminal open. Once approved, this local code-writing agent will automatically initiate and build the project!\\n\`);
+        printWaitingMsg = false;
+      }
+      // Poll every 3 seconds
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
   }
+
+  console.log(\`\\n🎉  \${colors.bold}\${colors.green}Consensus APPROVED! Starting Builder-Developer Loop...\${colors.reset}\\n\`);
 
   const goalContent = fs.existsSync('goal.md') ? fs.readFileSync('goal.md', 'utf8') : 'No goal defined.';
   
