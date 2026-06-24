@@ -556,7 +556,8 @@ Your task is to automatically build out the complete codebase inside this worksp
   // Generate local .env containing OpenAI credentials for the local agent script to leverage securely
   const apiKey = process.env.OPENAI_API_KEY || '';
   const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-  await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\n`);
+  const modelName = process.env.OPENAI_MODEL_NAME || MODEL_NAME;
+  await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\nOPENAI_MODEL_NAME=${modelName}\n`);
 
   // Generate local .gitignore to protect key leaks or node_modules
   const gitignoreContent = `.env\nnode_modules/\nkill.lock\ndist/\nbuild/\n`;
@@ -567,6 +568,19 @@ Your task is to automatically build out the complete codebase inside this worksp
 const path = require('path');
 const https = require('https');
 const { execSync } = require('child_process');
+const readline = require('readline');
+
+// Function to prompt user in terminal
+function askQuestion(query) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise((resolve) => rl.question(query, (ans) => {
+    rl.close();
+    resolve(ans);
+  }));
+}
 
 // Color helpers for terminal output
 const colors = {
@@ -586,6 +600,7 @@ console.log(\`\${colors.bold}\${colors.cyan}====================================
 // 1. Load environment variables
 let apiKey = '';
 let apiBase = 'https://api.openai.com/v1';
+let modelName = 'deepseek-v4-pro';
 
 if (fs.existsSync('.env')) {
   const envContent = fs.readFileSync('.env', 'utf8');
@@ -596,6 +611,7 @@ if (fs.existsSync('.env')) {
       const val = parts.slice(1).join('=').trim();
       if (key === 'OPENAI_API_KEY') apiKey = val;
       if (key === 'OPENAI_API_BASE') apiBase = val;
+      if (key === 'OPENAI_MODEL_NAME') modelName = val;
     }
   });
 }
@@ -615,7 +631,7 @@ function callAI(messages) {
   return new Promise((resolve, reject) => {
     const url = new URL(\`\${apiBase}/chat/completions\`);
     const postData = JSON.stringify({
-      model: 'gpt-4o',
+      model: modelName,
       messages: messages,
       temperature: 0.3
     });
@@ -703,8 +719,11 @@ Analyze the goals, create a complete folder structure, write package.json, src f
   ];
 
   let testErrorLog = "";
+  let maxIterations = 5;
+  let iteration = 1;
+  let running = true;
 
-  for (let iteration = 1; iteration <= 5; iteration++) {
+  while (running && iteration <= maxIterations) {
     // Check for kill switch file
     if (fs.existsSync('kill.lock')) {
       console.log(\`\\n\${colors.red}\${colors.bold}🛑 [Kill-Switch Detected] Stopping the Local Agent Loop immediately.\${colors.reset}\`);
@@ -712,7 +731,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
     }
 
     console.log(\`\\n\${colors.bold}\${colors.yellow}==================================================\${colors.reset}\`);
-    console.log(\`⚙️  \${colors.bold}\${colors.cyan}Local Agent Loop - Iteration \${iteration} of 5\${colors.reset}\`);
+    console.log(\`⚙️  \${colors.bold}\${colors.cyan}Local Agent Loop - Iteration \${iteration} of \${maxIterations}\${colors.reset}\`);
     console.log(\`\${colors.bold}\${colors.yellow}==================================================\${colors.reset}\`);
 
     // Scan workspace files
@@ -806,6 +825,19 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       console.log(\`\${colors.red}❌ Error calling AI: \${apiErr.message}\${colors.reset}\`);
       break;
     }
+
+    if (iteration === maxIterations) {
+      console.log(\`\\n\${colors.bold}\${colors.yellow}⚠️  Local Agent Loop completed \${maxIterations} cycles.\${colors.reset}\`);
+      const answer = await askQuestion(\`Would you like to run another 5 cycles to complete building the project? (y/n): \`);
+      if (answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes') {
+        maxIterations += 5;
+        console.log(\`\\n🔄 Extending Agent Loop by another 5 cycles. New limit: \${maxIterations} cycles.\\n\`);
+      } else {
+        running = false;
+      }
+    }
+
+    iteration++;
   }
 
   console.log(\`\\n\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\`);

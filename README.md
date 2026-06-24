@@ -14,6 +14,9 @@ Unlike knowledge retrieval bots (e.g., Deriv Brain), the **AI Innovation Marketp
 *   **Semantic Duplicate Detection:** Similarity analysis using text embeddings to identify duplicate or overlapping proposals.
 *   **Executive Summary Generator:** Produces under-one-minute management-ready summaries detailing the problem, solution, benefits, risks, and recommendations.
 *   **Interactive Collaboration Dashboard:** Supports employee voting, nested commenting, department-specific rankings, and overall trend analysis.
+*   **Local Agent Loop & Auto-Build Task Integration:** Standalone, zero-dependency `agent_loop.js` that compiles code locally and prompts the user in the terminal with a dynamic interactive prompt to run another 5 cycles to complete building.
+*   **AI-Powered PRD & Roadmap Generator:** One-click automated PRD specifications drafting and structured implementation roadmap generation.
+*   **Slack & ClickUp Integrations:** Seamlessly push approved ideas to Slack channels and generate ready-to-work tasks on ClickUp.
 
 ---
 

@@ -9,4 +9,4 @@ export const openai = new OpenAI({
   dangerouslyAllowBrowser: true, // If we ever call from browser, though we should prefer calling via Next.js API routes for security!
 });
 
-export const MODEL_NAME = process.env.OPENAI_MODEL_NAME || 'gemini-3.5-flash';
+export const MODEL_NAME = process.env.OPENAI_MODEL_NAME || 'deepseek-v4-pro';

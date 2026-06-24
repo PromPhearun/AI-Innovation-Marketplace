@@ -231,7 +231,7 @@ Services:
 
 Preferred:
 
-* gemini-3.5-flash
+* deepseek-v4-pro
 
 ---
 
@@ -302,19 +302,22 @@ The MVP is successful if users can:
 
 ---
 
-# Future Enhancements (Out of Scope for MVP)
+# Completed Advanced Features & Future Enhancements
 
-* Slack Integration
-* ClickUp Integration
-* Deriv Brain Integration
-* SSO Integration
-* Automated Project Creation
-* AI-Generated PRDs
-* AI Roadmap Generation
-* Department-Specific AI Reviewers
-* Innovation Analytics Dashboard
+The following advanced, future-scope engineering features are fully implemented in this prototype:
 
-These features should be considered after the MVP is completed.
+*   **Slack Channel Integration:** Pushes idea details and C-suite evaluations directly to Slack.
+*   **ClickUp Integration:** Scaffolds full, action-itemized software tasks on ClickUp boards.
+*   **AI-Generated PRDs:** Drafts complete, highly polished Product Requirement Documents.
+*   **AI Roadmap Generation:** Automatically plans multi-phased development schedules and timelines.
+*   **Local Agent Loop Task System:** Standalone sandbox execution script `agent_loop.js` that locally compiles, verifies packages, and prompts the user in the terminal to interactively add more compilation cycles dynamically.
+
+## Future Scope (Phase 2)
+
+*   Deriv Brain Integration (Semantic knowledge base search)
+*   Single Sign-On (SSO) Enterprise integration
+*   Department-Specific Custom AI Agent Personas
+*   Advanced Interactive Innovation Analytics Dashboard
 
 ---
 

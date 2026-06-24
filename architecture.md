@@ -37,7 +37,7 @@ The architecture is designed for rapid development during a hackathon while rema
 
 Primary:
 
-* gemini-3.5-flash
+* deepseek-v4-pro
 
 ---
 
@@ -556,16 +556,18 @@ MVP is complete when:
 
 ---
 
-# Future Enhancements
+# Completed Advanced Engineering Features & Future Enhancements
 
-Phase 2:
+The following advanced engineering capabilities are fully implemented in the prototype:
 
-* Slack Integration
-* ClickUp Integration
-* Deriv Brain Integration
-* AI PRD Generator
-* AI Roadmap Generator
-* AI Innovation Council
-* Department-Specific AI Agents
+*   **Slack Integration:** Instant alerts and review summaries pushed to Slack channels.
+*   **ClickUp Integration:** Automated, structured task breakdown pushing straight into ClickUp.
+*   **AI PRD Generator:** Automated, highly detailed Product Requirement Document drafting.
+*   **AI Roadmap Generator:** Dynamic development roadmap milestones and timelines.
+*   **Local Agent Loop Task System:** Zero-dependency standalone sandbox script `agent_loop.js` compiling code locally with dynamic interactive continuation terminal prompts.
 
-These are intentionally excluded from the hackathon MVP.
+## Future Scope (Phase 2)
+
+*   Deriv Brain Integration (Semantic knowledge retrieval)
+*   AI Innovation Council (Collaborative multi-agent consensus debate)
+*   Department-Specific Custom AI Agent Personas
