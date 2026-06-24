@@ -1,7 +1,7 @@
 import { openai, MODEL_NAME } from './client';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import os from 'os';
 
 // Security: Validate that the ideaId is strictly alphanumeric/dashes/underscores to prevent Path Traversal or Command Injection
@@ -195,34 +195,35 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
   }
 
   let cmd = '';
+  const rootFile = path.join(workspacePath, 'README.md');
   if (process.platform === 'darwin') {
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}" 2>/dev/null || open -a "Cursor" "${workspacePath}"`;
+      cmd = `cursor "${workspacePath}" "${rootFile}" 2>/dev/null || open -b "com.todesktop.230313mzlgl6u42" "${workspacePath}" "${rootFile}" 2>/dev/null || open -a "Cursor" "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}" 2>/dev/null || open -a "Visual Studio Code" "${workspacePath}"`;
+      cmd = `code "${workspacePath}" "${rootFile}" 2>/dev/null || open -a "Visual Studio Code" "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'kiro') {
-      cmd = `open -a "Kiro" "${workspacePath}" 2>/dev/null || open "${workspacePath}"`;
+      cmd = `open -a "Kiro" "${workspacePath}" "${rootFile}" 2>/dev/null || open "${workspacePath}"`;
     } else {
       cmd = `open "${workspacePath}"`;
     }
   } else if (process.platform === 'win32') {
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}"`;
+      cmd = `cursor "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}"`;
+      cmd = `code "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'kiro') {
-      cmd = `kiro "${workspacePath}" 2>nul || explorer "${workspacePath}"`;
+      cmd = `kiro "${workspacePath}" "${rootFile}" 2>nul || explorer "${workspacePath}"`;
     } else {
       cmd = `explorer "${workspacePath}"`;
     }
   } else {
     // Linux/Other
     if (ide === 'cursor') {
-      cmd = `cursor "${workspacePath}"`;
+      cmd = `cursor "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'vscode') {
-      cmd = `code "${workspacePath}"`;
+      cmd = `code "${workspacePath}" "${rootFile}"`;
     } else if (ide === 'kiro') {
-      cmd = `kiro "${workspacePath}" 2>/dev/null || xdg-open "${workspacePath}"`;
+      cmd = `kiro "${workspacePath}" "${rootFile}" 2>/dev/null || xdg-open "${workspacePath}"`;
     } else {
       cmd = `xdg-open "${workspacePath}"`;
     }
@@ -807,6 +808,164 @@ Your task is to automatically build out the complete codebase inside this worksp
           } catch (e) {
             appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
           }
+
+          // Start automated Developer loop (5 cycles) to write actual code files
+          appendLog(ideaId, `🚀 Consensus reached! Initiating 5-iteration automated Developer Code-Writing Loop...`);
+          
+          const devHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+            {
+              role: 'system',
+              content: `You are "The Builder-Developer AI", an elite full-stack engineer and automation agent.
+Your task is to write actual WORKING code files inside this local workspace folder to implement the project described in goal.md and the approved specs (requirements.md, architecture.md).
+
+RULES:
+1. Examine the current workspace files provided by the user.
+2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
+3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
+4. Output your file creations or edits using this EXACT syntax:
+<<<< FILE: filename.js
+[exact content of the file]
+>>>>
+
+5. You can create multiple files in a single turn.
+6. When the codebase is fully implemented, error-free, and compiles perfectly, end your response with the exact phrase: "STATUS: COMPLETE"
+
+Analyze the goals, create a complete folder structure, write package.json, src files, configs, tests, etc.`
+            }
+          ];
+
+          let devErrorLog = '';
+
+          for (let devIter = 1; devIter <= 5; devIter++) {
+            if (abortControllers[ideaId]) {
+              appendLog(ideaId, `🛑 Developer loop execution stopped by user.`);
+              status.status = 'stopped';
+              return;
+            }
+
+            appendLog(ideaId, `⚙️ Starting Developer Iteration ${devIter} of 5...`);
+
+            // Read all current files recursively for context
+            const currentFiles = getFilesRecursively(workspacePath);
+            const filesContext = currentFiles
+              .filter(f => {
+                const rel = f.relativePath;
+                return !rel.startsWith('.') &&
+                  !rel.startsWith('node_modules/') &&
+                  rel !== 'agent_loop.js' &&
+                  rel !== 'kill.lock' &&
+                  (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'));
+              })
+              .map(f => {
+                const content = fs.readFileSync(f.absolutePath, 'utf8');
+                return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
+              })
+              .join('\n\n');
+
+            let devPrompt = `Goal Description:\n${ideaDesc}\n\n${filesContext}`;
+            if (devErrorLog) {
+              devPrompt += `\n\n⚠️ PREVIOUS BUILD/COMPILE ERRORS:\n${devErrorLog}\n\nPlease fix these compilation/build errors in this iteration!`;
+              devErrorLog = ''; // reset
+            }
+
+            devHistory.push({ role: 'user', content: devPrompt });
+            appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
+
+            try {
+              const devResponse = await openai.chat.completions.create({
+                model: MODEL_NAME,
+                messages: devHistory,
+                temperature: 0.3
+              });
+
+              const devText = devResponse.choices[0]?.message?.content || '';
+              devHistory.push({ role: 'assistant', content: devText });
+
+              // Parse and write file blocks
+              const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\n([\s\S]*?)\n>>>>/g;
+              let devMatch;
+              const devFilesUpdated: string[] = [];
+
+              while ((devMatch = devFileRegex.exec(devText)) !== null) {
+                const filename = devMatch[1].trim();
+                const content = devMatch[2];
+
+                if (filename && validateWorkspaceFilePath(filename)) {
+                  const fullPath = path.join(workspacePath, filename);
+                  const dirPath = path.dirname(fullPath);
+                  if (dirPath && !fs.existsSync(dirPath)) {
+                    fs.mkdirSync(dirPath, { recursive: true });
+                  }
+                  fs.writeFileSync(fullPath, content, 'utf8');
+                  devFilesUpdated.push(filename);
+                  appendLog(ideaId, `✍️ AI Developer created/updated: ${filename}`);
+                } else if (filename) {
+                  appendLog(ideaId, `⚠️ Blocked write of invalid or unsafe file path: ${filename}`);
+                }
+              }
+
+              if (devFilesUpdated.length === 0) {
+                appendLog(ideaId, `ℹ️ AI Developer suggested modifications but didn't write formatted file blocks.`);
+              }
+
+              if (devText.includes('STATUS: COMPLETE')) {
+                appendLog(ideaId, `🎉 AI Developer marked the code implementation as COMPLETE!`);
+                break;
+              }
+
+              // Run tests/compilation check inside workspace locally
+              const localPackageJsonPath = path.join(workspacePath, 'package.json');
+              if (fs.existsSync(localPackageJsonPath)) {
+                appendLog(ideaId, `⚙️ package.json found. Running build/compile verification...`);
+                try {
+                  const isCloudHostLocal = 
+                    process.env.VERCEL === '1' || 
+                    process.env.VERCEL === 'true' || 
+                    !!process.env.VERCEL || 
+                    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
+                    !!process.env.NETLIFY || 
+                    !!process.env.RENDER || 
+                    !!process.env.FLY_APP_NAME || 
+                    !!process.env.HEROKU_APP_ID || 
+                    process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
+
+                  if (!isCloudHostLocal) {
+                    const nodeModulesPath = path.join(workspacePath, 'node_modules');
+                    if (!fs.existsSync(nodeModulesPath)) {
+                      appendLog(ideaId, `📦 Installing npm dependencies...`);
+                      execSync('npm install', { cwd: workspacePath, stdio: 'pipe' });
+                    }
+
+                    const pkg = JSON.parse(fs.readFileSync(localPackageJsonPath, 'utf8'));
+                    if (pkg.scripts && pkg.scripts.build) {
+                      appendLog(ideaId, `🛠 Compiling build: running 'npm run build'...`);
+                      execSync('npm run build', { cwd: workspacePath, stdio: 'pipe' });
+                      appendLog(ideaId, `✅ Build compiled successfully without errors!`);
+                    } else {
+                      const mainFile = pkg.main || 'index.js';
+                      const mainFilePath = path.join(workspacePath, mainFile);
+                      if (fs.existsSync(mainFilePath)) {
+                        execSync(`node -c "${mainFilePath}"`, { stdio: 'pipe' });
+                        appendLog(ideaId, `✅ Syntax check passed for main file: ${mainFile}`);
+                      }
+                    }
+                  } else {
+                    appendLog(ideaId, `⚠️ Cloud environment. Skipped local compilation execution check.`);
+                  }
+                } catch (execErr: unknown) {
+                  appendLog(ideaId, `⚠️ Build / Syntax test failed. Logging error for AI correction.`);
+                  const errMessage = execErr instanceof Error ? execErr.message : String(execErr);
+                  devErrorLog = errMessage;
+                }
+              }
+
+            } catch (devErr: unknown) {
+              const errMessage = devErr instanceof Error ? devErr.message : String(devErr);
+              appendLog(ideaId, `❌ Error calling AI Developer in iteration ${devIter}: ${errMessage}`);
+            }
+          }
+
+          appendLog(ideaId, `🎉 Developer loop completed successfully.`);
 
           if (ideToOpen) {
             launchIDE(ideaId, ideToOpen);
