@@ -3,6 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import { exec, execSync } from 'child_process';
 import os from 'os';
+import { db, storage, isFirebaseConfigured } from '@/lib/firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getBytes } from 'firebase/storage';
 
 // Security: Validate that the ideaId is strictly alphanumeric/dashes/underscores to prevent Path Traversal or Command Injection
 export function validateId(id: string): boolean {
@@ -90,18 +93,94 @@ const getWorkspaceBase = () => {
 
 const WORKSPACE_BASE = getWorkspaceBase();
 
-export function getAgentLoopStatus(ideaId: string): LoopStatus {
+// Helper to save Agent Loop Status (caches in memory and, if firebase is configured, saves to Firestore)
+export async function saveAgentLoopStatus(ideaId: string, status: LoopStatus): Promise<void> {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid Idea ID format');
+  }
+  agentLoops[ideaId] = status;
+  if (isFirebaseConfigured && db) {
+    try {
+      await setDoc(doc(db, 'agentLoops', ideaId), status);
+    } catch (e) {
+      console.error(`Failed to save agent loop status to Firestore for idea ${ideaId}:`, e);
+    }
+  }
+}
+
+// Synchronous fast getter of Agent Loop Status from memory cache
+export function getAgentLoopStatusSync(ideaId: string): LoopStatus {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid Idea ID format');
+  }
+  const existing = agentLoops[ideaId];
+  if (existing) {
+    return existing;
+  }
+  const defaultStatus: LoopStatus = {
+    ideaId,
+    status: 'idle',
+    iteration: 0,
+    maxIterations: 5,
+    logs: ['Agent Loop system initialized. Ready to launch.'],
+    ideOpened: false,
+    filesCreated: [],
+    history: '',
+    consensusReached: false
+  };
+  agentLoops[ideaId] = defaultStatus;
+  return defaultStatus;
+}
+
+// Asynchronous getter of Agent Loop Status (checks Firestore if Firebase is configured, with local fallback)
+export async function getAgentLoopStatus(ideaId: string): Promise<LoopStatus> {
   if (!validateId(ideaId)) {
     throw new Error('Invalid Idea ID format');
   }
 
-  // Ensure workspace folder exists
+  // Fast path: memory cache
+  const existing = agentLoops[ideaId];
+  if (existing) {
+    if (isFirebaseConfigured && db) {
+      try {
+        const docRef = doc(db, 'agentLoops', ideaId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as LoopStatus;
+          agentLoops[ideaId] = data;
+          return data;
+        }
+      } catch (e) {
+        console.error('Error fetching loop status from Firestore:', e);
+      }
+    }
+    return existing;
+  }
+
+  // Slow path: Firestore or local files
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, 'agentLoops', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as LoopStatus;
+        agentLoops[ideaId] = data;
+        return data;
+      }
+    } catch (e) {
+      console.error('Error fetching loop status from Firestore:', e);
+    }
+  }
+
+  // Local filesystem fallback
   const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
   const historyPath = path.join(workspacePath, 'prompthistory.md');
   
   let history = '';
   if (fs.existsSync(historyPath)) {
-    history = fs.readFileSync(historyPath, 'utf8');
+    try {
+      history = fs.readFileSync(historyPath, 'utf8');
+    } catch {}
   }
 
   let filesCreated: string[] = [];
@@ -110,14 +189,6 @@ export function getAgentLoopStatus(ideaId: string): LoopStatus {
   }
 
   const consensusReached = history.includes('STATUS: APPROVED');
-
-  const existing = agentLoops[ideaId];
-  if (existing) {
-    existing.history = history;
-    existing.filesCreated = filesCreated;
-    existing.consensusReached = consensusReached;
-    return existing;
-  }
 
   const defaultStatus: LoopStatus = {
     ideaId,
@@ -135,32 +206,132 @@ export function getAgentLoopStatus(ideaId: string): LoopStatus {
   return defaultStatus;
 }
 
+// Asynchronously writes a file to Firebase Storage if configured, and also tries to write locally
+export async function writeWorkspaceFile(ideaId: string, filename: string, content: string): Promise<void> {
+  if (!validateId(ideaId) || !validateWorkspaceFilePath(filename)) {
+    throw new Error(`Invalid file path format: ${filename}`);
+  }
+
+  // 1. Cloud Storage Write
+  if (isFirebaseConfigured && storage) {
+    try {
+      const storageRef = ref(storage, `ideas/${ideaId}/agent_workspace/${filename}`);
+      const buffer = Buffer.from(content, 'utf-8');
+      await uploadBytes(storageRef, buffer);
+    } catch (e) {
+      console.error(`Firebase Storage write failed for ${filename}:`, e);
+    }
+  }
+
+  // 2. Local Disk Write
+  try {
+    const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+    const filePath = path.join(workspacePath, filename);
+    const dirPath = path.dirname(filePath);
+    if (dirPath && !fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    fs.writeFileSync(filePath, content, 'utf8');
+  } catch (e) {
+    console.warn(`Local filesystem write skipped/failed for ${filename}:`, e);
+  }
+
+  // 3. Keep loop status updated in Firestore
+  const status = await getAgentLoopStatus(ideaId);
+  if (!status.filesCreated.includes(filename)) {
+    status.filesCreated.push(filename);
+  }
+  if (filename === 'prompthistory.md') {
+    status.history = content;
+    status.consensusReached = content.includes('STATUS: APPROVED');
+  }
+  await saveAgentLoopStatus(ideaId, status);
+}
+
+// Asynchronously reads a file from Firebase Storage if configured, with local filesystem fallback
+export async function readWorkspaceFile(ideaId: string, filename: string): Promise<string> {
+  if (!validateId(ideaId) || !validateWorkspaceFilePath(filename)) {
+    throw new Error(`Invalid file path format: ${filename}`);
+  }
+
+  // 1. Read from Firebase Storage
+  if (isFirebaseConfigured && storage) {
+    try {
+      const storageRef = ref(storage, `ideas/${ideaId}/agent_workspace/${filename}`);
+      const bytes = await getBytes(storageRef);
+      return Buffer.from(bytes).toString('utf-8');
+    } catch (e) {
+      console.warn(`Firebase Storage read failed for ${filename}, falling back to local:`, e);
+    }
+  }
+
+  // 2. Local fallback
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const filePath = path.join(workspacePath, filename);
+  if (fs.existsSync(filePath)) {
+    return fs.readFileSync(filePath, 'utf8');
+  }
+
+  return '';
+}
+
+// Check if file exists in active workspace (either via memory/Firestore file list or locally)
+export async function workspaceFileExists(ideaId: string, filename: string): Promise<boolean> {
+  if (!validateId(ideaId) || !validateWorkspaceFilePath(filename)) {
+    return false;
+  }
+
+  const status = await getAgentLoopStatus(ideaId);
+  if (status.filesCreated.includes(filename)) {
+    return true;
+  }
+
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const filePath = path.join(workspacePath, filename);
+  return fs.existsSync(filePath);
+}
+
 export function stopAgentLoop(ideaId: string) {
   if (!validateId(ideaId)) {
     throw new Error('Invalid Idea ID format');
   }
   abortControllers[ideaId] = true;
-  if (agentLoops[ideaId]) {
-    agentLoops[ideaId].status = 'stopped';
-    agentLoops[ideaId].logs.push('🛑 [User Triggered Kill Switch] Agent Loop stopped immediately.');
+  const existing = agentLoops[ideaId];
+  if (existing) {
+    existing.status = 'stopped';
+    existing.logs.push('🛑 [User Triggered Kill Switch] Agent Loop stopped immediately.');
+    if (isFirebaseConfigured && db) {
+      saveAgentLoopStatus(ideaId, existing).catch((err) => {
+        console.error('Failed to sync stopped status to Firestore:', err);
+      });
+    }
   }
 
   // Also write a kill.lock file in the workspace directory if it exists, to stop any running local terminal agent loop instantly
   const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
-  if (fs.existsSync(workspacePath)) {
-    try {
-      fs.writeFileSync(path.join(workspacePath, 'kill.lock'), 'STOP', 'utf8');
-    } catch (e) {
-      console.error('Failed to write kill.lock:', e);
+  try {
+    if (!fs.existsSync(WORKSPACE_BASE)) {
+      fs.mkdirSync(WORKSPACE_BASE, { recursive: true });
     }
+    if (!fs.existsSync(workspacePath)) {
+      fs.mkdirSync(workspacePath, { recursive: true });
+    }
+    fs.writeFileSync(path.join(workspacePath, 'kill.lock'), 'STOP', 'utf8');
+  } catch (e) {
+    console.error('Failed to write kill.lock:', e);
   }
 }
 
 export function appendLog(ideaId: string, message: string) {
-  const status = getAgentLoopStatus(ideaId);
+  const status = getAgentLoopStatusSync(ideaId);
   const timestamp = new Date().toLocaleTimeString();
   status.logs.push(`[${timestamp}] ${message}`);
   console.log(`[AgentLoop ${ideaId}] ${message}`);
+  if (isFirebaseConfigured && db) {
+    saveAgentLoopStatus(ideaId, status).catch((err) => {
+      console.error('Failed to sync logs to Firestore in background:', err);
+    });
+  }
 }
 
 // Safely open the IDE using standard sanitized environment variables or safe command executions
@@ -282,7 +453,7 @@ export async function runAgentLoop(
   // Reset Abort Controller
   abortControllers[ideaId] = false;
 
-  const existing = agentLoops[ideaId];
+  const existing = await getAgentLoopStatus(ideaId);
   let iteration = 0;
   let maxIterations = 5;
   let logs: string[] = [];
@@ -293,7 +464,7 @@ export async function runAgentLoop(
     logs = [...existing.logs];
   }
 
-  const status: LoopStatus = agentLoops[ideaId] = {
+  const status: LoopStatus = {
     ideaId,
     status: 'running',
     iteration,
@@ -301,7 +472,8 @@ export async function runAgentLoop(
     logs,
     ideOpened: existing && resume ? existing.ideOpened : false,
     filesCreated: existing && resume ? existing.filesCreated : [],
-    history: existing && resume ? existing.history : ''
+    history: existing && resume ? existing.history : '',
+    consensusReached: existing && resume ? existing.consensusReached : false
   };
 
   if (existing && resume) {
@@ -310,23 +482,14 @@ export async function runAgentLoop(
     appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
   }
 
-  // Ensure workspace exists
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
-  if (!fs.existsSync(WORKSPACE_BASE)) {
-    fs.mkdirSync(WORKSPACE_BASE, { recursive: true });
-  }
-  if (!fs.existsSync(workspacePath)) {
-    fs.mkdirSync(workspacePath, { recursive: true });
-    appendLog(ideaId, `📁 Created workspace directory: ./agent_workspace/idea_${ideaId}`);
-  }
+  // Also write memory/Firestore status early
+  await saveAgentLoopStatus(ideaId, status);
 
   // Generate .clinerules if consensus was already reached previously
-  const historyPath = path.join(workspacePath, 'prompthistory.md');
-  const isAlreadyApproved = fs.existsSync(historyPath) && fs.readFileSync(historyPath, 'utf8').includes('STATUS: APPROVED');
+  const isAlreadyApproved = (await readWorkspaceFile(ideaId, 'prompthistory.md')).includes('STATUS: APPROVED');
   if (isAlreadyApproved) {
     status.consensusReached = true;
-    const clinerulesPath = path.join(workspacePath, '.clinerules');
-    if (!fs.existsSync(clinerulesPath)) {
+    if (!(await workspaceFileExists(ideaId, '.clinerules'))) {
       const clinerulesContent = `# Cline Project Implementation Rules
 
 The specifications for this project have been officially APPROVED by the Critic AI!
@@ -341,13 +504,14 @@ Your task is to automatically build out the complete codebase inside this worksp
 5. Create a verification script or run tests to confirm everything builds and runs perfectly.
 `;
       try {
-        fs.writeFileSync(clinerulesPath, clinerulesContent, 'utf8');
+        await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
         appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
       } catch {}
     }
   }
 
   // Ensure we delete any existing kill-switch lock on fresh loop start
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
   const killLockPath = path.join(workspacePath, 'kill.lock');
   if (fs.existsSync(killLockPath)) {
     try {
@@ -358,7 +522,9 @@ Your task is to automatically build out the complete codebase inside this worksp
   // Generate .vscode/tasks.json for seamless hands-free launch in VS Code/Cursor
   const vscodeDirPath = path.join(workspacePath, '.vscode');
   if (!fs.existsSync(vscodeDirPath)) {
-    fs.mkdirSync(vscodeDirPath, { recursive: true });
+    try {
+      fs.mkdirSync(vscodeDirPath, { recursive: true });
+    } catch {}
   }
 
   const tasksJsonContent = `{
@@ -384,17 +550,17 @@ Your task is to automatically build out the complete codebase inside this worksp
   ]
 }`;
 
-  fs.writeFileSync(path.join(vscodeDirPath, 'tasks.json'), tasksJsonContent, 'utf8');
+  await writeWorkspaceFile(ideaId, '.vscode/tasks.json', tasksJsonContent);
   appendLog(ideaId, `📄 Generated .vscode/tasks.json for auto-run on folder open`);
 
   // Generate local .env containing OpenAI credentials for the local agent script to leverage securely
   const apiKey = process.env.OPENAI_API_KEY || '';
   const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
-  fs.writeFileSync(path.join(workspacePath, '.env'), `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\n`, 'utf8');
+  await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\n`);
 
   // Generate local .gitignore to protect key leaks or node_modules
   const gitignoreContent = `.env\nnode_modules/\nkill.lock\ndist/\nbuild/\n`;
-  fs.writeFileSync(path.join(workspacePath, '.gitignore'), gitignoreContent, 'utf8');
+  await writeWorkspaceFile(ideaId, '.gitignore', gitignoreContent);
 
   // Generate local standalone zero-dependency self-prompting builder runner script
   const agentScriptContent = `const fs = require('fs');
@@ -649,7 +815,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
 
 main().catch(console.error);`;
 
-  fs.writeFileSync(path.join(workspacePath, 'agent_loop.js'), agentScriptContent, 'utf8');
+  await writeWorkspaceFile(ideaId, 'agent_loop.js', agentScriptContent);
   appendLog(ideaId, `📄 Scaffolded zero-dependency builder agent script: agent_loop.js`);
 
   // Scaffold initial files
@@ -667,21 +833,21 @@ main().catch(console.error);`;
   };
 
   for (const [filename, content] of Object.entries(scaffoldFiles)) {
-    const filePath = path.join(workspacePath, filename);
-    if (!fs.existsSync(filePath)) {
-      fs.writeFileSync(filePath, content, 'utf8');
+    if (!(await workspaceFileExists(ideaId, filename))) {
+      await writeWorkspaceFile(ideaId, filename, content);
       appendLog(ideaId, `📄 Scaffolded initial file: ${filename}`);
     }
   }
 
   // Initialize or append prompthistory.md
-  if (fs.existsSync(historyPath)) {
+  const historyContent = await readWorkspaceFile(ideaId, 'prompthistory.md');
+  if (historyContent) {
     const sessionHeader = `\n\n# --- Starting Another Loop Cycle (Timestamp: ${new Date().toLocaleString()}) ---\n\n`;
-    fs.appendFileSync(historyPath, sessionHeader, 'utf8');
+    await writeWorkspaceFile(ideaId, 'prompthistory.md', historyContent + sessionHeader);
     appendLog(ideaId, `📝 Appended loop session header to existing prompthistory.md`);
   } else {
     const initialHistory = `# AI self-prompting Loop History\n**Project:** ${ideaTitle}\n**Launch Timestamp:** ${new Date().toLocaleString()}\n\n---\n\n`;
-    fs.writeFileSync(historyPath, initialHistory, 'utf8');
+    await writeWorkspaceFile(ideaId, 'prompthistory.md', initialHistory);
     appendLog(ideaId, `📄 Created fresh prompthistory.md`);
   }
 
@@ -697,20 +863,29 @@ main().catch(console.error);`;
         if (abortControllers[ideaId]) {
           appendLog(ideaId, `🛑 Agent Loop execution stopped by user.`);
           status.status = 'stopped';
+          await saveAgentLoopStatus(ideaId, status);
           return;
         }
 
         status.iteration++;
         appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
 
-        // Read all current files (recursively) to supply as context
-        const currentFilesContent = getFilesRecursively(workspacePath)
-          .filter(f => f.relativePath.endsWith('.md') || f.relativePath.endsWith('.txt') || f.relativePath.endsWith('.json') || f.relativePath.endsWith('.py') || f.relativePath.endsWith('.js') || f.relativePath.endsWith('.ts'))
-          .map(f => {
-            const content = fs.readFileSync(f.absolutePath, 'utf8');
-            return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
-          })
-          .join('\n\n');
+        // Read all current files recursively to supply as context
+        const currentFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
+        const filesToSupply = currentFiles.filter(rel => 
+          !rel.startsWith('.') &&
+          !rel.startsWith('node_modules/') &&
+          rel !== 'agent_loop.js' &&
+          rel !== 'kill.lock' &&
+          (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
+        );
+
+        const fileContents: string[] = [];
+        for (const file of filesToSupply) {
+          const content = await readWorkspaceFile(ideaId, file);
+          fileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+        }
+        const currentFilesContent = fileContents.join('\n\n');
 
         // Step 1: BUILDER PERSONA
         appendLog(ideaId, `🤖 Persona A (The Builder) is drafting updates...`);
@@ -753,12 +928,7 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
           const content = match[2];
           
           if (filename && validateWorkspaceFilePath(filename)) {
-            const fullPath = path.join(workspacePath, filename);
-            const dirPath = path.dirname(fullPath);
-            if (dirPath && !fs.existsSync(dirPath)) {
-              fs.mkdirSync(dirPath, { recursive: true });
-            }
-            fs.writeFileSync(fullPath, content, 'utf8');
+            await writeWorkspaceFile(ideaId, filename, content);
             filesUpdatedThisTurn.push(filename);
             appendLog(ideaId, `✍️ Builder AI updated: ${filename}`);
           } else if (filename) {
@@ -773,14 +943,22 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         // Step 2: CRITIC PERSONA
         appendLog(ideaId, `🕵️ Persona B (The Critic) is auditing files against targets...`);
         
-        // Reload files content (recursively) to give to the Critic
-        const updatedFilesContent = getFilesRecursively(workspacePath)
-          .filter(f => f.relativePath.endsWith('.md') || f.relativePath.endsWith('.txt') || f.relativePath.endsWith('.json') || f.relativePath.endsWith('.py') || f.relativePath.endsWith('.js') || f.relativePath.endsWith('.ts'))
-          .map(f => {
-            const content = fs.readFileSync(f.absolutePath, 'utf8');
-            return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
-          })
-          .join('\n\n');
+        // Reload files content recursively to give to the Critic
+        const updatedFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
+        const criticFilesToSupply = updatedFiles.filter(rel => 
+          !rel.startsWith('.') &&
+          !rel.startsWith('node_modules/') &&
+          rel !== 'agent_loop.js' &&
+          rel !== 'kill.lock' &&
+          (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
+        );
+
+        const criticFileContents: string[] = [];
+        for (const file of criticFilesToSupply) {
+          const content = await readWorkspaceFile(ideaId, file);
+          criticFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+        }
+        const updatedFilesContent = criticFileContents.join('\n\n');
 
         const criticPrompt = `You are "The Critic AI", an elite security analyst, business auditor, and technical consensus evaluator.
 Your goal is to inspect the software design artifacts and source files in this workspace to ensure they are complete, secure, logically consistent, and fulfill the project's original vision perfectly.
@@ -813,15 +991,16 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
           `### Critic Review & Recommendation:\n${criticText}\n\n` +
           `---\n\n`;
 
-        fs.appendFileSync(historyPath, iterationHistory, 'utf8');
+        const currentHistoryText = await readWorkspaceFile(ideaId, 'prompthistory.md');
+        await writeWorkspaceFile(ideaId, 'prompthistory.md', currentHistoryText + iterationHistory);
 
         if (isApproved) {
           appendLog(ideaId, `🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.`);
           status.status = 'completed';
           status.consensusReached = true;
+          await saveAgentLoopStatus(ideaId, status);
 
           // Generate .clinerules to guide Cline
-          const clinerulesPath = path.join(workspacePath, '.clinerules');
           const clinerulesContent = `# Cline Project Implementation Rules
 
 The specifications for this project have been officially APPROVED by the Critic AI!
@@ -836,7 +1015,7 @@ Your task is to automatically build out the complete codebase inside this worksp
 5. Create a verification script or run tests to confirm everything builds and runs perfectly.
 `;
           try {
-            fs.writeFileSync(clinerulesPath, clinerulesContent, 'utf8');
+            await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
             appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
           } catch (e) {
             appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
@@ -873,27 +1052,28 @@ Analyze the goals, create a complete folder structure, write package.json, src f
             if (abortControllers[ideaId]) {
               appendLog(ideaId, `🛑 Developer loop execution stopped by user.`);
               status.status = 'stopped';
+              await saveAgentLoopStatus(ideaId, status);
               return;
             }
 
             appendLog(ideaId, `⚙️ Starting Developer Iteration ${devIter} of 5...`);
 
             // Read all current files recursively for context
-            const currentFiles = getFilesRecursively(workspacePath);
-            const filesContext = currentFiles
-              .filter(f => {
-                const rel = f.relativePath;
-                return !rel.startsWith('.') &&
-                  !rel.startsWith('node_modules/') &&
-                  rel !== 'agent_loop.js' &&
-                  rel !== 'kill.lock' &&
-                  (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'));
-              })
-              .map(f => {
-                const content = fs.readFileSync(f.absolutePath, 'utf8');
-                return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
-              })
-              .join('\n\n');
+            const currentDevFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
+            const devFilesToSupply = currentDevFiles.filter(rel => 
+              !rel.startsWith('.') &&
+              !rel.startsWith('node_modules/') &&
+              rel !== 'agent_loop.js' &&
+              rel !== 'kill.lock' &&
+              (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
+            );
+
+            const devFileContents: string[] = [];
+            for (const file of devFilesToSupply) {
+              const content = await readWorkspaceFile(ideaId, file);
+              devFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+            }
+            const filesContext = devFileContents.join('\n\n');
 
             let devPrompt = `Goal Description:\n${ideaDesc}\n\n${filesContext}`;
             if (devErrorLog) {
@@ -924,12 +1104,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
                 const content = devMatch[2];
 
                 if (filename && validateWorkspaceFilePath(filename)) {
-                  const fullPath = path.join(workspacePath, filename);
-                  const dirPath = path.dirname(fullPath);
-                  if (dirPath && !fs.existsSync(dirPath)) {
-                    fs.mkdirSync(dirPath, { recursive: true });
-                  }
-                  fs.writeFileSync(fullPath, content, 'utf8');
+                  await writeWorkspaceFile(ideaId, filename, content);
                   devFilesUpdated.push(filename);
                   appendLog(ideaId, `✍️ AI Developer created/updated: ${filename}`);
                 } else if (filename) {
@@ -946,9 +1121,9 @@ Analyze the goals, create a complete folder structure, write package.json, src f
                 break;
               }
 
-              // Run tests/compilation check inside workspace locally
-              const localPackageJsonPath = path.join(workspacePath, 'package.json');
-              if (fs.existsSync(localPackageJsonPath)) {
+              // Run tests/compilation check inside workspace locally (only if local package.json exists)
+              const hasPackageJson = await workspaceFileExists(ideaId, 'package.json');
+              if (hasPackageJson) {
                 appendLog(ideaId, `⚙️ package.json found. Running build/compile verification...`);
                 try {
                   const isCloudHostLocal = 
@@ -969,6 +1144,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
                       execSync('npm install', { cwd: workspacePath, stdio: 'pipe' });
                     }
 
+                    const localPackageJsonPath = path.join(workspacePath, 'package.json');
                     const pkg = JSON.parse(fs.readFileSync(localPackageJsonPath, 'utf8'));
                     if (pkg.scripts && pkg.scripts.build) {
                       appendLog(ideaId, `🛠 Compiling build: running 'npm run build'...`);
@@ -999,6 +1175,8 @@ Analyze the goals, create a complete folder structure, write package.json, src f
           }
 
           appendLog(ideaId, `🎉 Developer loop completed successfully.`);
+          status.status = 'completed';
+          await saveAgentLoopStatus(ideaId, status);
 
           if (ideToOpen) {
             launchIDE(ideaId, ideToOpen);
@@ -1009,11 +1187,13 @@ Analyze the goals, create a complete folder structure, write package.json, src f
 
       appendLog(ideaId, `🏁 Max iterations (${status.maxIterations}) completed. specifications generated.`);
       status.status = 'completed';
+      await saveAgentLoopStatus(ideaId, status);
     } catch (err: unknown) {
       const error = err as Error;
       appendLog(ideaId, `❌ Error in Agent Loop execution: ${error?.message || error}`);
       status.status = 'failed';
       status.error = error?.message || 'Unknown runner error';
+      await saveAgentLoopStatus(ideaId, status);
     }
   })();
 }

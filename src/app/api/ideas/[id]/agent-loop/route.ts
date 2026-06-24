@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid idea ID format' }, { status: 400 });
     }
 
-    const status = getAgentLoopStatus(id);
+    const status = await getAgentLoopStatus(id);
     return NextResponse.json(status);
   } catch (error: unknown) {
     const err = error as Error;
@@ -55,16 +55,16 @@ export async function POST(
     if (action === 'start') {
       const resume = !!body.resume;
       await runAgentLoop(id, idea.title, idea.description, ide, resume);
-      const status = getAgentLoopStatus(id);
+      const status = await getAgentLoopStatus(id);
       return NextResponse.json({ message: 'Agent Loop started', status });
     } else if (action === 'stop') {
       stopAgentLoop(id);
-      const status = getAgentLoopStatus(id);
+      const status = await getAgentLoopStatus(id);
       return NextResponse.json({ message: 'Agent Loop stopped', status });
     } else if (action === 'launch_ide') {
       const targetIde = ide || 'vscode';
       const success = launchIDE(id, targetIde);
-      const status = getAgentLoopStatus(id);
+      const status = await getAgentLoopStatus(id);
       return NextResponse.json({ message: success ? 'IDE opened' : 'Failed to open IDE or skipped', status });
     } else {
       return NextResponse.json({ error: 'Invalid action specified' }, { status: 400 });

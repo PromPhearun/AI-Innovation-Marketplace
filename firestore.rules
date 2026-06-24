@@ -31,5 +31,10 @@ service cloud.firestore {
     match /summaries/{ideaId} {
       allow read, write: if true;
     }
+
+    // Agent Loops Collection
+    match /agentLoops/{ideaId} {
+      allow read, write: if true;
+    }
   }
 }

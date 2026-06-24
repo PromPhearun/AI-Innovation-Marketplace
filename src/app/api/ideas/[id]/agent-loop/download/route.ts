@@ -3,12 +3,15 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import os from 'os';
-import { validateId } from '@/lib/ai/agent-loop-runner';
+import { validateId, getAgentLoopStatus, readWorkspaceFile } from '@/lib/ai/agent-loop-runner';
+import { isFirebaseConfigured } from '@/lib/firebase/config';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let tempDir = '';
+  let isTemp = false;
   try {
     const { id } = await params;
 
@@ -36,15 +39,45 @@ export async function GET(
     };
 
     const WORKSPACE_BASE = getWorkspaceBase();
-    const workspacePath = path.join(WORKSPACE_BASE, `idea_${id}`);
+    let workspacePath = path.join(WORKSPACE_BASE, `idea_${id}`);
 
-    if (!fs.existsSync(workspacePath)) {
+    const status = await getAgentLoopStatus(id);
+    const filesCreated = status.filesCreated || [];
+
+    if (isFirebaseConfigured && filesCreated.length > 0) {
+      try {
+        tempDir = path.join(os.tmpdir(), `idea_${id}_download_${Date.now()}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+        
+        for (const filename of filesCreated) {
+          try {
+            const content = await readWorkspaceFile(id, filename);
+            if (content) {
+              const destPath = path.join(tempDir, filename);
+              const destDir = path.dirname(destPath);
+              if (!fs.existsSync(destDir)) {
+                fs.mkdirSync(destDir, { recursive: true });
+              }
+              fs.writeFileSync(destPath, content, 'utf8');
+            }
+          } catch (err) {
+            console.error(`Error downloading file ${filename} for zip:`, err);
+          }
+        }
+        workspacePath = tempDir;
+        isTemp = true;
+      } catch (err) {
+        console.error('Error preparing temp directory for zip download:', err);
+      }
+    }
+
+    if (!isTemp && !fs.existsSync(workspacePath)) {
       return NextResponse.json({ error: 'Workspace folder not found. Please run the AI Agent Loop first!' }, { status: 404 });
     }
 
     // Determine temporary path for output archive
     const zipFilename = `idea_${id}_workspace.zip`;
-    const tempZipPath = path.join(WORKSPACE_BASE, zipFilename);
+    const tempZipPath = path.join(isTemp ? os.tmpdir() : WORKSPACE_BASE, zipFilename);
 
     // If file exists, delete it first
     if (fs.existsSync(tempZipPath)) {
@@ -70,6 +103,10 @@ export async function GET(
       const fileBuffer = fs.readFileSync(tempTarPath);
       fs.unlinkSync(tempTarPath); // cleanup
 
+      if (isTemp && tempDir) {
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+      }
+
       return new Response(fileBuffer, {
         headers: {
           'Content-Type': 'application/gzip',
@@ -80,11 +117,18 @@ export async function GET(
 
     // If zip was successful
     if (!fs.existsSync(tempZipPath)) {
+      if (isTemp && tempDir) {
+        try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+      }
       return NextResponse.json({ error: 'Failed to generate archive.' }, { status: 500 });
     }
 
     const fileBuffer = fs.readFileSync(tempZipPath);
     fs.unlinkSync(tempZipPath); // cleanup
+
+    if (isTemp && tempDir) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+    }
 
     return new Response(fileBuffer, {
       headers: {
@@ -93,6 +137,9 @@ export async function GET(
       },
     });
   } catch (error: unknown) {
+    if (isTemp && tempDir) {
+      try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch {}
+    }
     const err = error as Error;
     console.error('API Error in GET /api/ideas/[id]/agent-loop/download:', err);
     return NextResponse.json(
