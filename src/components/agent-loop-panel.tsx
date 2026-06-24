@@ -70,7 +70,11 @@ export default function AgentLoopPanel({
       const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start', ide: isRunBefore ? undefined : selectedIde }),
+        body: JSON.stringify({
+          action: 'start',
+          ide: isRunBefore ? undefined : selectedIde,
+          resume: isRunBefore,
+        }),
       });
       if (res.ok) {
         const data = await res.json();

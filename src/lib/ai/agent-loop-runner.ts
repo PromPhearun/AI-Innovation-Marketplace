@@ -9,6 +9,38 @@ export function validateId(id: string): boolean {
   return /^[a-zA-Z0-9\-_]+$/.test(id);
 }
 
+// Security: Validate that the relative workspace file path is safe and does not escape via Path Traversal
+export function validateWorkspaceFilePath(filename: string): boolean {
+  if (filename.includes('..') || filename.startsWith('/') || path.isAbsolute(filename)) {
+    return false;
+  }
+  return /^[a-zA-Z0-9_\-\.\/]+$/.test(filename);
+}
+
+// Recursively list all files in a directory excluding common ignore paths
+export function getFilesRecursively(dir: string, baseDir: string = dir): { relativePath: string; absolutePath: string }[] {
+  let results: { relativePath: string; absolutePath: string }[] = [];
+  if (!fs.existsSync(dir)) return results;
+  try {
+    const list = fs.readdirSync(dir);
+    for (const file of list) {
+      const absolutePath = path.join(dir, file);
+      const stat = fs.statSync(absolutePath);
+      if (stat && stat.isDirectory()) {
+        if (file !== 'node_modules' && file !== '.git' && file !== '.vscode' && file !== 'output' && !file.startsWith('.')) {
+          results = results.concat(getFilesRecursively(absolutePath, baseDir));
+        }
+      } else {
+        const relativePath = path.relative(baseDir, absolutePath);
+        results.push({ relativePath, absolutePath });
+      }
+    }
+  } catch (e) {
+    console.error(`Error reading directory recursively ${dir}:`, e);
+  }
+  return results;
+}
+
 export interface LoopStatus {
   ideaId: string;
   status: 'idle' | 'running' | 'completed' | 'stopped' | 'failed';
@@ -73,7 +105,7 @@ export function getAgentLoopStatus(ideaId: string): LoopStatus {
 
   let filesCreated: string[] = [];
   if (fs.existsSync(workspacePath)) {
-    filesCreated = fs.readdirSync(workspacePath).filter(file => !file.startsWith('.'));
+    filesCreated = getFilesRecursively(workspacePath).map(f => f.relativePath);
   }
 
   const existing = agentLoops[ideaId];
@@ -210,7 +242,8 @@ export async function runAgentLoop(
   ideaId: string,
   ideaTitle: string,
   ideaDesc: string,
-  ideToOpen?: 'vscode' | 'cursor' | 'kiro'
+  ideToOpen?: 'vscode' | 'cursor' | 'kiro',
+  resume: boolean = false
 ) {
   if (!validateId(ideaId)) {
     throw new Error('Invalid ID');
@@ -222,18 +255,33 @@ export async function runAgentLoop(
   // Reset Abort Controller
   abortControllers[ideaId] = false;
 
+  const existing = agentLoops[ideaId];
+  let iteration = 0;
+  let maxIterations = 5;
+  let logs: string[] = [];
+
+  if (existing && resume) {
+    iteration = existing.iteration;
+    maxIterations = iteration + 5;
+    logs = [...existing.logs];
+  }
+
   const status: LoopStatus = agentLoops[ideaId] = {
     ideaId,
     status: 'running',
-    iteration: 0,
-    maxIterations: 5,
-    logs: [],
-    ideOpened: false,
-    filesCreated: [],
-    history: ''
+    iteration,
+    maxIterations,
+    logs,
+    ideOpened: existing && resume ? existing.ideOpened : false,
+    filesCreated: existing && resume ? existing.filesCreated : [],
+    history: existing && resume ? existing.history : ''
   };
 
-  appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
+  if (existing && resume) {
+    appendLog(ideaId, `🔄 Resuming Agent Loop. Extending execution by 5 cycles (New Max Cycles: ${maxIterations}).`);
+  } else {
+    appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
+  }
 
   // Ensure workspace exists
   const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
@@ -455,7 +503,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       conversationHistory.push({ role: 'assistant', content: responseText });
 
       // Parse file blocks
-      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\\\-\\/\\\\.]+)\\n([\\s\\S]*?)\\n>>>>/g;
+      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\-\\.\\/]+)\\n([\\s\\S]*?)\\n>>>>/g;
       let match;
       let filesUpdated = [];
 
@@ -581,12 +629,12 @@ main().catch(console.error);`;
         status.iteration++;
         appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
 
-        // Read all current files to supply as context
-        const currentFilesContent = fs.readdirSync(workspacePath)
-          .filter(f => f.endsWith('.md') || f.endsWith('.txt') || f.endsWith('.json') || f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.ts'))
-          .map(filename => {
-            const content = fs.readFileSync(path.join(workspacePath, filename), 'utf8');
-            return `### FILE: ${filename}\n\`\`\`\n${content}\n\`\`\``;
+        // Read all current files (recursively) to supply as context
+        const currentFilesContent = getFilesRecursively(workspacePath)
+          .filter(f => f.relativePath.endsWith('.md') || f.relativePath.endsWith('.txt') || f.relativePath.endsWith('.json') || f.relativePath.endsWith('.py') || f.relativePath.endsWith('.js') || f.relativePath.endsWith('.ts'))
+          .map(f => {
+            const content = fs.readFileSync(f.absolutePath, 'utf8');
+            return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
           })
           .join('\n\n');
 
@@ -621,8 +669,8 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
 
         const builderText = builderResponse.choices[0]?.message?.content || '';
 
-        // Parse and apply files written by the Builder
-        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.]+)\n([\s\S]*?)\n>>>>/g;
+        // Parse and apply files written by the Builder (allowing subdirectories)
+        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\n([\s\S]*?)\n>>>>/g;
         let match;
         const filesUpdatedThisTurn: string[] = [];
 
@@ -630,10 +678,17 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
           const filename = match[1].trim();
           const content = match[2];
           
-          if (filename && validateId(filename.replace('.', '_'))) {
-            fs.writeFileSync(path.join(workspacePath, filename), content, 'utf8');
+          if (filename && validateWorkspaceFilePath(filename)) {
+            const fullPath = path.join(workspacePath, filename);
+            const dirPath = path.dirname(fullPath);
+            if (dirPath && !fs.existsSync(dirPath)) {
+              fs.mkdirSync(dirPath, { recursive: true });
+            }
+            fs.writeFileSync(fullPath, content, 'utf8');
             filesUpdatedThisTurn.push(filename);
             appendLog(ideaId, `✍️ Builder AI updated: ${filename}`);
+          } else if (filename) {
+            appendLog(ideaId, `⚠️ Blocked write of invalid or unsafe file path: ${filename}`);
           }
         }
 
@@ -644,12 +699,12 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         // Step 2: CRITIC PERSONA
         appendLog(ideaId, `🕵️ Persona B (The Critic) is auditing files against targets...`);
         
-        // Reload files content to give to the Critic
-        const updatedFilesContent = fs.readdirSync(workspacePath)
-          .filter(f => f.endsWith('.md') || f.endsWith('.txt') || f.endsWith('.json') || f.endsWith('.py') || f.endsWith('.js') || f.endsWith('.ts'))
-          .map(filename => {
-            const content = fs.readFileSync(path.join(workspacePath, filename), 'utf8');
-            return `### FILE: ${filename}\n\`\`\`\n${content}\n\`\`\``;
+        // Reload files content (recursively) to give to the Critic
+        const updatedFilesContent = getFilesRecursively(workspacePath)
+          .filter(f => f.relativePath.endsWith('.md') || f.relativePath.endsWith('.txt') || f.relativePath.endsWith('.json') || f.relativePath.endsWith('.py') || f.relativePath.endsWith('.js') || f.relativePath.endsWith('.ts'))
+          .map(f => {
+            const content = fs.readFileSync(f.absolutePath, 'utf8');
+            return `### FILE: ${f.relativePath}\n\`\`\`\n${content}\n\`\`\``;
           })
           .join('\n\n');
 

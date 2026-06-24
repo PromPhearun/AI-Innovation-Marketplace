@@ -52,7 +52,8 @@ export async function POST(
     }
 
     if (action === 'start') {
-      await runAgentLoop(id, idea.title, idea.description, ide);
+      const resume = !!body.resume;
+      await runAgentLoop(id, idea.title, idea.description, ide, resume);
       const status = getAgentLoopStatus(id);
       return NextResponse.json({ message: 'Agent Loop started', status });
     } else if (action === 'stop') {
