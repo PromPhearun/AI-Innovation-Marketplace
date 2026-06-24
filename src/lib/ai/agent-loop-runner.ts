@@ -2,6 +2,7 @@ import { openai, MODEL_NAME } from './client';
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
+import os from 'os';
 
 // Security: Validate that the ideaId is strictly alphanumeric/dashes/underscores to prevent Path Traversal or Command Injection
 export function validateId(id: string): boolean {
@@ -36,7 +37,25 @@ if (!globalWithLoops._abortControllers) {
 const agentLoops = globalWithLoops._agentLoops;
 const abortControllers = globalWithLoops._abortControllers;
 
-const WORKSPACE_BASE = path.join(process.cwd(), 'agent_workspace');
+// Determine workspace base depending on the environment. For local, save on the user's Desktop.
+const getWorkspaceBase = () => {
+  const isCloudHost = 
+    process.env.VERCEL === '1' || 
+    process.env.VERCEL === 'true' || 
+    !!process.env.VERCEL || 
+    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
+    !!process.env.NETLIFY || 
+    !!process.env.RENDER || 
+    !!process.env.FLY_APP_NAME || 
+    !!process.env.HEROKU_APP_ID;
+
+  if (isCloudHost) {
+    return path.join(process.cwd(), 'agent_workspace');
+  }
+  return path.join(os.homedir(), 'Desktop', 'agent_workspace');
+};
+
+const WORKSPACE_BASE = getWorkspaceBase();
 
 export function getAgentLoopStatus(ideaId: string): LoopStatus {
   if (!validateId(ideaId)) {
@@ -144,6 +163,8 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
       cmd = `cursor "${workspacePath}" 2>/dev/null || open -a "Cursor" "${workspacePath}"`;
     } else if (ide === 'vscode') {
       cmd = `code "${workspacePath}" 2>/dev/null || open -a "Visual Studio Code" "${workspacePath}"`;
+    } else if (ide === 'kiro') {
+      cmd = `open -a "Kiro" "${workspacePath}" 2>/dev/null || open "${workspacePath}"`;
     } else {
       cmd = `open "${workspacePath}"`;
     }
@@ -152,6 +173,8 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
       cmd = `cursor "${workspacePath}"`;
     } else if (ide === 'vscode') {
       cmd = `code "${workspacePath}"`;
+    } else if (ide === 'kiro') {
+      cmd = `kiro "${workspacePath}" 2>nul || explorer "${workspacePath}"`;
     } else {
       cmd = `explorer "${workspacePath}"`;
     }
@@ -161,6 +184,8 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
       cmd = `cursor "${workspacePath}"`;
     } else if (ide === 'vscode') {
       cmd = `code "${workspacePath}"`;
+    } else if (ide === 'kiro') {
+      cmd = `kiro "${workspacePath}" 2>/dev/null || xdg-open "${workspacePath}"`;
     } else {
       cmd = `xdg-open "${workspacePath}"`;
     }
@@ -505,11 +530,17 @@ main().catch(console.error);`;
   appendLog(ideaId, `📄 Scaffolded zero-dependency builder agent script: agent_loop.js`);
 
   // Scaffold initial files
+  const safeName = ideaTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'ai-project';
+  const escapedTitle = ideaTitle.replace(/"/g, '\\"').replace(/\n/g, ' ');
+  const escapedDesc = ideaDesc.replace(/"/g, '\\"').replace(/\n/g, ' ');
+
   const scaffoldFiles = {
     'goal.md': `# High-Level Goals: ${ideaTitle}\n\n${ideaDesc}\n\n## Objective\nTo construct and verify a complete technical blueprint, requirements specification, and architecture blueprint matching the idea's core vision.`,
     'architecture.md': `# Architecture Design Blueprint\n\n*(Pending AI Agent Loop Generation)*`,
     'requirements.md': `# Business & Functional Requirements\n\n*(Pending AI Agent Loop Generation)*`,
-    'README.md': `# Workspace: ${ideaTitle}\n\nThis workspace is governed by an automated Critic-Builder loop.\n\nVS Code/Cursor will automatically run \`node agent_loop.js\` to install dependencies, self-prompt and write code, and verify project compilation up to 5 times.`,
+    'README.md': `# Workspace: ${ideaTitle}\n\nThis workspace is governed by an automated Critic-Builder loop.\n\n## 🚀 How to Run the Local Code-Writing Agent:\n\nIf your IDE (Cursor or VS Code) blocks automatic background task execution due to Security or Workspace Trust settings, you can easily start the loop manually:\n\n1. Open your integrated terminal in Cursor/VS Code (press \`Ctrl + \\\` \` or \`Cmd + \\\` \`).\n2. Run the following command:\n   \`\`\`bash\n   node agent_loop.js\n   \`\`\`\n3. The AI loop will run directly in your terminal, automatically writing missing code files, installing dependencies, checking syntax, and self-correcting errors!`,
+    'package.json': `{\n  "name": "${safeName}",\n  "version": "1.0.0",\n  "description": "${escapedDesc}",\n  "main": "index.js",\n  "scripts": {\n    "start": "node index.js",\n    "test": "echo \\"Error: no test specified\\" && exit 0"\n  },\n  "dependencies": {}\n}`,
+    'index.js': `// Starter entry point for: ${escapedTitle}\n// Description: ${escapedDesc}\n\nconsole.log("==================================================");\nconsole.log("🚀 Starting ${escapedTitle}...");\nconsole.log("==================================================");\n\nasync function main() {\n  console.log("AI Starter Project successfully initialized!");\n  console.log("Running self-prompting loop to expand features...");\n}\n\nmain().catch(console.error);\n`
   };
 
   for (const [filename, content] of Object.entries(scaffoldFiles)) {
@@ -520,10 +551,17 @@ main().catch(console.error);`;
     }
   }
 
-  // Initialize or reset prompthistory.md
+  // Initialize or append prompthistory.md
   const historyPath = path.join(workspacePath, 'prompthistory.md');
-  const initialHistory = `# AI self-prompting Loop History\n**Project:** ${ideaTitle}\n**Launch Timestamp:** ${new Date().toLocaleString()}\n\n---\n\n`;
-  fs.writeFileSync(historyPath, initialHistory, 'utf8');
+  if (fs.existsSync(historyPath)) {
+    const sessionHeader = `\n\n# --- Starting Another Loop Cycle (Timestamp: ${new Date().toLocaleString()}) ---\n\n`;
+    fs.appendFileSync(historyPath, sessionHeader, 'utf8');
+    appendLog(ideaId, `📝 Appended loop session header to existing prompthistory.md`);
+  } else {
+    const initialHistory = `# AI self-prompting Loop History\n**Project:** ${ideaTitle}\n**Launch Timestamp:** ${new Date().toLocaleString()}\n\n---\n\n`;
+    fs.writeFileSync(historyPath, initialHistory, 'utf8');
+    appendLog(ideaId, `📄 Created fresh prompthistory.md`);
+  }
 
   // Trigger local IDE launch if specified
   if (ideToOpen) {

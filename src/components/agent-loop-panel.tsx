@@ -18,7 +18,7 @@ export default function AgentLoopPanel({
   const [selectedIde, setSelectedIde] = useState<'vscode' | 'cursor' | 'kiro'>('vscode');
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const terminalContainerRef = useRef<HTMLDivElement>(null);
 
   // Poll status from the API
   const fetchStatus = async () => {
@@ -58,8 +58,8 @@ export default function AgentLoopPanel({
 
   // Auto-scroll logs terminal
   useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (terminalContainerRef.current) {
+      terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
     }
   }, [status?.logs]);
 
@@ -70,7 +70,7 @@ export default function AgentLoopPanel({
       const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'start', ide: selectedIde }),
+        body: JSON.stringify({ action: 'start', ide: isRunBefore ? undefined : selectedIde }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -152,6 +152,11 @@ export default function AgentLoopPanel({
     }
   };
 
+  const isRunBefore = status && (status.status === 'completed' || status.status === 'stopped' || status.status === 'failed' || status.iteration > 0);
+  const buttonText = isRunBefore 
+    ? 'Run Spec Engine for 5 More Cycles' 
+    : 'Launch Spec Engine & Open IDE';
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* MISSION CONTROL CENTER */}
@@ -192,7 +197,7 @@ export default function AgentLoopPanel({
                         : 'bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'
                     }`}
                   >
-                    {ide === 'vscode' ? 'VS Code' : ide === 'cursor' ? 'Cursor' : 'Kiro (Open)'}
+                    {ide === 'vscode' ? 'VS Code' : ide === 'cursor' ? 'Cursor' : 'Kiro'}
                   </button>
                 ))}
               </div>
@@ -224,7 +229,7 @@ export default function AgentLoopPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Launch Spec Engine & Open IDE
+                {buttonText}
               </button>
             )}
 
@@ -242,6 +247,25 @@ export default function AgentLoopPanel({
             )}
           </div>
         </div>
+
+        {/* MANUAL TERMINAL TRIGGER INFO CARD */}
+        {status && status.status !== 'idle' && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-4 rounded-xl flex items-start gap-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200/90 shadow-sm animate-fade-in">
+            <span className="text-base mt-0.5 select-none">💡</span>
+            <div className="space-y-1">
+              <strong className="font-extrabold uppercase tracking-wide text-[10px] text-amber-900 dark:text-amber-300">
+                Tip: Run the loop locally anytime
+              </strong>
+              <p>
+                If you prefer not to wait for another 5 cycles in the browser, or if your local workspace was blocked by IDE security settings, you can manually trigger code writing directly in your IDE:
+              </p>
+              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-2.5 rounded-lg border border-slate-800 mt-2 select-all shadow-inner flex items-center justify-between">
+                <span>node agent_loop.js</span>
+                <span className="text-[9px] text-slate-500 font-sans tracking-wide uppercase select-none">Run in IDE terminal</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* PROGRESS METER */}
         {status?.status === 'running' && (
@@ -277,7 +301,10 @@ export default function AgentLoopPanel({
             </div>
 
             {/* Terminal Logs */}
-            <div className="p-4 flex-1 overflow-y-auto font-mono text-xs text-emerald-400/95 space-y-2 leading-relaxed selection:bg-emerald-500/20">
+            <div 
+              ref={terminalContainerRef}
+              className="p-4 flex-1 overflow-y-auto font-mono text-xs text-emerald-400/95 space-y-2 leading-relaxed selection:bg-emerald-500/20"
+            >
               {status?.logs && status.logs.length > 0 ? (
                 status.logs.map((log, index) => {
                   let colorClass = 'text-emerald-400/90';
@@ -297,7 +324,6 @@ export default function AgentLoopPanel({
               ) : (
                 <div className="text-slate-600 italic">TTY input buffer empty. Awaiting loop trigger sequence...</div>
               )}
-              <div ref={logsEndRef} />
             </div>
           </div>
         </div>

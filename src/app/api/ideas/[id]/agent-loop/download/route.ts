@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import os from 'os';
 import { validateId } from '@/lib/ai/agent-loop-runner';
 
 export async function GET(
@@ -16,7 +17,25 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid ID format' }, { status: 400 });
     }
 
-    const WORKSPACE_BASE = path.join(process.cwd(), 'agent_workspace');
+    // Determine workspace base depending on the environment. For local, save on the user's Desktop.
+    const getWorkspaceBase = () => {
+      const isCloudHost = 
+        process.env.VERCEL === '1' || 
+        process.env.VERCEL === 'true' || 
+        !!process.env.VERCEL || 
+        !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
+        !!process.env.NETLIFY || 
+        !!process.env.RENDER || 
+        !!process.env.FLY_APP_NAME || 
+        !!process.env.HEROKU_APP_ID;
+
+      if (isCloudHost) {
+        return path.join(process.cwd(), 'agent_workspace');
+      }
+      return path.join(os.homedir(), 'Desktop', 'agent_workspace');
+    };
+
+    const WORKSPACE_BASE = getWorkspaceBase();
     const workspacePath = path.join(WORKSPACE_BASE, `idea_${id}`);
 
     if (!fs.existsSync(workspacePath)) {
