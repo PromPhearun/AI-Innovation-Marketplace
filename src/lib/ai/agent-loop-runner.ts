@@ -436,6 +436,252 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
   return true;
 }
 
+export async function executeDeveloperLoop(
+  ideaId: string,
+  ideaTitle: string,
+  ideaDesc: string,
+  status: LoopStatus,
+  ideToOpen?: 'vscode' | 'cursor' | 'kiro'
+) {
+  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  
+  // Start automated Developer loop (5 cycles) to write actual code files
+  appendLog(ideaId, `🚀 Consensus reached! Initiating 5-iteration automated Developer Code-Writing Loop...`);
+  
+  const devHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+    {
+      role: 'system',
+      content: `You are "The Builder-Developer AI", an elite full-stack engineer and automation agent.
+Your task is to write actual WORKING code files inside this local workspace folder to implement the project described in goal.md and the approved specs (requirements.md, architecture.md).
+
+RULES:
+1. Examine the current workspace files provided by the user.
+2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
+3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
+4. Output your file creations or edits using this EXACT syntax:
+<<<< FILE: filename.js
+[exact content of the file]
+>>>>
+
+5. You can create multiple files in a single turn.
+
+Analyze the goals, create a complete folder structure, write package.json, src files, configs, tests, etc.`
+    }
+  ];
+
+  let devErrorLog = '';
+  const startIter = status.iteration;
+  const targetIter = startIter + 5;
+
+  const initialStatus = await getAgentLoopStatus(ideaId);
+  initialStatus.maxIterations = targetIter;
+  initialStatus.status = 'running';
+  await saveAgentLoopStatus(ideaId, initialStatus);
+
+  for (let devIter = 1; devIter <= 5; devIter++) {
+    if (abortControllers[ideaId]) {
+      appendLog(ideaId, `🛑 Developer loop execution stopped by user.`);
+      const stoppedStatus = await getAgentLoopStatus(ideaId);
+      stoppedStatus.status = 'stopped';
+      await saveAgentLoopStatus(ideaId, stoppedStatus);
+      return;
+    }
+
+    const iterStatus = await getAgentLoopStatus(ideaId);
+    iterStatus.iteration = startIter + devIter;
+    await saveAgentLoopStatus(ideaId, iterStatus);
+
+    appendLog(ideaId, `⚙️ Starting Developer Iteration ${devIter} of 5...`);
+
+    // Reload files list
+    const currentStatus = await getAgentLoopStatus(ideaId);
+    const currentDevFiles = isFirebaseConfigured ? currentStatus.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
+    const devFilesToSupply = currentDevFiles.filter(rel => 
+      !rel.startsWith('.') &&
+      !rel.startsWith('node_modules/') &&
+      rel !== 'agent_loop.js' &&
+      rel !== 'kill.lock' &&
+      (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
+    );
+
+    const devFileContents: string[] = [];
+    for (const file of devFilesToSupply) {
+      const content = await readWorkspaceFile(ideaId, file);
+      devFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+    }
+    const filesContext = devFileContents.join('\n\n');
+
+    let devPrompt = `Goal Description:\n${ideaDesc}\n\n${filesContext}`;
+    if (devErrorLog) {
+      devPrompt += `\n\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\n${devErrorLog}\n\nPlease address and resolve these issues in this iteration!`;
+      devErrorLog = ''; // reset
+    }
+
+    devHistory.push({ role: 'user', content: devPrompt });
+    appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
+
+    try {
+      const devResponse = await openai.chat.completions.create({
+        model: MODEL_NAME,
+        messages: devHistory,
+        temperature: 0.3
+      });
+
+      const devText = devResponse.choices[0]?.message?.content || '';
+      devHistory.push({ role: 'assistant', content: devText });
+
+      // Parse and write file blocks
+      const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
+      let devMatch;
+      const devFilesUpdated: string[] = [];
+
+      while ((devMatch = devFileRegex.exec(devText)) !== null) {
+        const filename = devMatch[1].trim();
+        const content = devMatch[2];
+
+        if (filename && validateWorkspaceFilePath(filename)) {
+          await writeWorkspaceFile(ideaId, filename, content);
+          devFilesUpdated.push(filename);
+          appendLog(ideaId, `✍️ AI Developer created/updated: ${filename}`);
+        } else if (filename) {
+          appendLog(ideaId, `⚠️ Blocked write of invalid or unsafe file path: ${filename}`);
+        }
+      }
+
+      if (devFilesUpdated.length === 0) {
+        appendLog(ideaId, `ℹ️ AI Developer suggested modifications but didn't write formatted file blocks.`);
+      }
+
+      // Run tests/compilation check inside workspace locally (only if local package.json exists)
+      const hasPackageJson = await workspaceFileExists(ideaId, 'package.json');
+      if (hasPackageJson) {
+        appendLog(ideaId, `⚙️ package.json found. Running build/compile verification...`);
+        try {
+          const isCloudHostLocal = 
+            process.env.VERCEL === '1' || 
+            process.env.VERCEL === 'true' || 
+            !!process.env.VERCEL || 
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
+            !!process.env.NETLIFY || 
+            !!process.env.RENDER || 
+            !!process.env.FLY_APP_NAME || 
+            !!process.env.HEROKU_APP_ID || 
+            process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
+
+          if (!isCloudHostLocal) {
+            const nodeModulesPath = path.join(workspacePath, 'node_modules');
+            if (!fs.existsSync(nodeModulesPath)) {
+              appendLog(ideaId, `📦 Installing npm dependencies...`);
+              execSync('npm install', { cwd: workspacePath, stdio: 'pipe' });
+            }
+
+            const localPackageJsonPath = path.join(workspacePath, 'package.json');
+            const pkg = JSON.parse(fs.readFileSync(localPackageJsonPath, 'utf8'));
+            if (pkg.scripts && pkg.scripts.build) {
+              appendLog(ideaId, `🛠 Compiling build: running 'npm run build'...`);
+              execSync('npm run build', { cwd: workspacePath, stdio: 'pipe' });
+              appendLog(ideaId, `✅ Build compiled successfully without errors!`);
+            } else {
+              const mainFile = pkg.main || 'index.js';
+              const mainFilePath = path.join(workspacePath, mainFile);
+              if (fs.existsSync(mainFilePath)) {
+                execSync(`node -c "${mainFilePath}"`, { stdio: 'pipe' });
+                appendLog(ideaId, `✅ Syntax check passed for main file: ${mainFile}`);
+              }
+            }
+          } else {
+            appendLog(ideaId, `⚠️ Cloud environment. Skipped local compilation execution check.`);
+          }
+        } catch (execErr: unknown) {
+          appendLog(ideaId, `⚠️ Build / Syntax test failed. Logging error for AI correction.`);
+          const errMessage = execErr instanceof Error ? execErr.message : String(execErr);
+          devErrorLog = errMessage;
+        }
+      }
+
+      // Step 3: QA VERIFIER AUDIT
+      appendLog(ideaId, `🕵️ QA Verifier is auditing the implementation...`);
+      
+      const auditStatus = await getAgentLoopStatus(ideaId);
+      const verifierFiles = isFirebaseConfigured ? auditStatus.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
+      const verifierFilesToSupply = verifierFiles.filter(rel => 
+        !rel.startsWith('.') &&
+        !rel.startsWith('node_modules/') &&
+        rel !== 'agent_loop.js' &&
+        rel !== 'kill.lock' &&
+        (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
+      );
+
+      const verifierFileContents: string[] = [];
+      for (const file of verifierFilesToSupply) {
+        const content = await readWorkspaceFile(ideaId, file);
+        verifierFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+      }
+      const verifierContext = verifierFileContents.join('\n\n');
+
+      const verifierPrompt = `You are "The QA Verifier AI", an elite senior code auditor, QA tester, and software security engineer.
+Your task is to inspect the codebase generated by the AI Developer and verify if the project is 100% complete, fully functional, secure, compiles perfectly, and meets the high-level goals.
+
+Check for:
+1. Security vulnerabilities (input validation, SQL/Command injection, XSS, insecure dependencies).
+2. Code quality (clear structure, robust error handling, proper imports/exports, no TODOs/placeholders).
+3. Functional completeness (all requirements from goal.md are implemented).
+4. Build status (any syntax/compile errors from previous test runs).
+
+Goal Description:
+${ideaDesc}
+
+Workspace State:
+${verifierContext}
+
+Build/Compile Status:
+${devErrorLog || 'No build errors.'}
+
+If the project is completely implemented, is fully functional, has absolutely no errors, has zero placeholders/TODOs, and is ready for production, output the exact phrase: "STATUS: VERIFIED"
+Otherwise, list the remaining issues, missing features, or bugs that the AI Developer must resolve in the next iteration. Be constructive and highly specific.`;
+
+      const verifierResponse = await openai.chat.completions.create({
+        model: MODEL_NAME,
+        messages: [
+          { role: 'system', content: 'You are an elite software auditor and QA verifier.' },
+          { role: 'user', content: verifierPrompt }
+        ],
+        temperature: 0.1
+      });
+
+      const verifierText = verifierResponse.choices[0]?.message?.content || '';
+      appendLog(ideaId, `🕵️ QA Verifier Audit completed.`);
+
+      const isVerified = verifierText.includes('STATUS: VERIFIED');
+
+      if (isVerified) {
+        if (devErrorLog) {
+          appendLog(ideaId, `⚠️ QA Verifier claimed VERIFIED, but there are build/compile errors. Continuing loop to resolve errors...`);
+        } else {
+          appendLog(ideaId, `🎉 QA Verifier has officially approved the implementation and marked it as VERIFIED!`);
+          break;
+        }
+      } else {
+        appendLog(ideaId, `❌ Verification failed. QA Verifier identified issues:\n${verifierText}`);
+        devErrorLog = verifierText;
+      }
+
+    } catch (devErr: unknown) {
+      const errMessage = devErr instanceof Error ? devErr.message : String(devErr);
+      appendLog(ideaId, `❌ Error calling AI Developer in iteration ${devIter}: ${errMessage}`);
+    }
+  }
+
+  appendLog(ideaId, `🎉 Developer loop completed successfully.`);
+  const finalStatus = await getAgentLoopStatus(ideaId);
+  finalStatus.status = 'completed';
+  await saveAgentLoopStatus(ideaId, finalStatus);
+
+  if (ideToOpen) {
+    launchIDE(ideaId, ideToOpen);
+  }
+}
+
 export async function runAgentLoop(
   ideaId: string,
   ideaTitle: string,
@@ -1036,6 +1282,11 @@ main().catch(console.error);`;
   // Start background loop runner process
   void (async () => {
     try {
+      if (status.consensusReached) {
+        await executeDeveloperLoop(ideaId, ideaTitle, ideaDesc, status, ideToOpen);
+        return;
+      }
+
       while (status.iteration < status.maxIterations) {
         if (abortControllers[ideaId]) {
           appendLog(ideaId, `🛑 Agent Loop execution stopped by user.`);
@@ -1199,225 +1450,7 @@ Your task is to automatically build out the complete codebase inside this worksp
           }
 
           // Start automated Developer loop (5 cycles) to write actual code files
-          appendLog(ideaId, `🚀 Consensus reached! Initiating 5-iteration automated Developer Code-Writing Loop...`);
-          
-          const devHistory: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-            {
-              role: 'system',
-              content: `You are "The Builder-Developer AI", an elite full-stack engineer and automation agent.
-Your task is to write actual WORKING code files inside this local workspace folder to implement the project described in goal.md and the approved specs (requirements.md, architecture.md).
-
-RULES:
-1. Examine the current workspace files provided by the user.
-2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
-3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
-4. Output your file creations or edits using this EXACT syntax:
-<<<< FILE: filename.js
-[exact content of the file]
->>>>
-
-5. You can create multiple files in a single turn.
-
-Analyze the goals, create a complete folder structure, write package.json, src files, configs, tests, etc.`
-            }
-          ];
-
-          let devErrorLog = '';
-
-          for (let devIter = 1; devIter <= 5; devIter++) {
-            if (abortControllers[ideaId]) {
-              appendLog(ideaId, `🛑 Developer loop execution stopped by user.`);
-              status.status = 'stopped';
-              await saveAgentLoopStatus(ideaId, status);
-              return;
-            }
-
-            appendLog(ideaId, `⚙️ Starting Developer Iteration ${devIter} of 5...`);
-
-            // Read all current files recursively for context
-            const currentDevFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
-            const devFilesToSupply = currentDevFiles.filter(rel => 
-              !rel.startsWith('.') &&
-              !rel.startsWith('node_modules/') &&
-              rel !== 'agent_loop.js' &&
-              rel !== 'kill.lock' &&
-              (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
-            );
-
-            const devFileContents: string[] = [];
-            for (const file of devFilesToSupply) {
-              const content = await readWorkspaceFile(ideaId, file);
-              devFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
-            }
-            const filesContext = devFileContents.join('\n\n');
-
-            let devPrompt = `Goal Description:\n${ideaDesc}\n\n${filesContext}`;
-            if (devErrorLog) {
-              devPrompt += `\n\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\n${devErrorLog}\n\nPlease address and resolve these issues in this iteration!`;
-              devErrorLog = ''; // reset
-            }
-
-            devHistory.push({ role: 'user', content: devPrompt });
-            appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
-
-            try {
-              const devResponse = await openai.chat.completions.create({
-                model: MODEL_NAME,
-                messages: devHistory,
-                temperature: 0.3
-              });
-
-              const devText = devResponse.choices[0]?.message?.content || '';
-              devHistory.push({ role: 'assistant', content: devText });
-
-              // Parse and write file blocks
-              const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
-              let devMatch;
-              const devFilesUpdated: string[] = [];
-
-              while ((devMatch = devFileRegex.exec(devText)) !== null) {
-                const filename = devMatch[1].trim();
-                const content = devMatch[2];
-
-                if (filename && validateWorkspaceFilePath(filename)) {
-                  await writeWorkspaceFile(ideaId, filename, content);
-                  devFilesUpdated.push(filename);
-                  appendLog(ideaId, `✍️ AI Developer created/updated: ${filename}`);
-                } else if (filename) {
-                  appendLog(ideaId, `⚠️ Blocked write of invalid or unsafe file path: ${filename}`);
-                }
-              }
-
-              if (devFilesUpdated.length === 0) {
-                appendLog(ideaId, `ℹ️ AI Developer suggested modifications but didn't write formatted file blocks.`);
-              }
-
-              // Run tests/compilation check inside workspace locally (only if local package.json exists)
-              const hasPackageJson = await workspaceFileExists(ideaId, 'package.json');
-              if (hasPackageJson) {
-                appendLog(ideaId, `⚙️ package.json found. Running build/compile verification...`);
-                try {
-                  const isCloudHostLocal = 
-                    process.env.VERCEL === '1' || 
-                    process.env.VERCEL === 'true' || 
-                    !!process.env.VERCEL || 
-                    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
-                    !!process.env.NETLIFY || 
-                    !!process.env.RENDER || 
-                    !!process.env.FLY_APP_NAME || 
-                    !!process.env.HEROKU_APP_ID || 
-                    process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
-
-                  if (!isCloudHostLocal) {
-                    const nodeModulesPath = path.join(workspacePath, 'node_modules');
-                    if (!fs.existsSync(nodeModulesPath)) {
-                      appendLog(ideaId, `📦 Installing npm dependencies...`);
-                      execSync('npm install', { cwd: workspacePath, stdio: 'pipe' });
-                    }
-
-                    const localPackageJsonPath = path.join(workspacePath, 'package.json');
-                    const pkg = JSON.parse(fs.readFileSync(localPackageJsonPath, 'utf8'));
-                    if (pkg.scripts && pkg.scripts.build) {
-                      appendLog(ideaId, `🛠 Compiling build: running 'npm run build'...`);
-                      execSync('npm run build', { cwd: workspacePath, stdio: 'pipe' });
-                      appendLog(ideaId, `✅ Build compiled successfully without errors!`);
-                    } else {
-                      const mainFile = pkg.main || 'index.js';
-                      const mainFilePath = path.join(workspacePath, mainFile);
-                      if (fs.existsSync(mainFilePath)) {
-                        execSync(`node -c "${mainFilePath}"`, { stdio: 'pipe' });
-                        appendLog(ideaId, `✅ Syntax check passed for main file: ${mainFile}`);
-                      }
-                    }
-                  } else {
-                    appendLog(ideaId, `⚠️ Cloud environment. Skipped local compilation execution check.`);
-                  }
-                } catch (execErr: unknown) {
-                  appendLog(ideaId, `⚠️ Build / Syntax test failed. Logging error for AI correction.`);
-                  const errMessage = execErr instanceof Error ? execErr.message : String(execErr);
-                  devErrorLog = errMessage;
-                }
-              }
-
-              // Step 3: QA VERIFIER AUDIT
-              appendLog(ideaId, `🕵️ QA Verifier is auditing the implementation...`);
-              
-              const verifierFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
-              const verifierFilesToSupply = verifierFiles.filter(rel => 
-                !rel.startsWith('.') &&
-                !rel.startsWith('node_modules/') &&
-                rel !== 'agent_loop.js' &&
-                rel !== 'kill.lock' &&
-                (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
-              );
-
-              const verifierFileContents: string[] = [];
-              for (const file of verifierFilesToSupply) {
-                const content = await readWorkspaceFile(ideaId, file);
-                verifierFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
-              }
-              const verifierContext = verifierFileContents.join('\n\n');
-
-              const verifierPrompt = `You are "The QA Verifier AI", an elite senior code auditor, QA tester, and software security engineer.
-Your task is to inspect the codebase generated by the AI Developer and verify if the project is 100% complete, fully functional, secure, compiles perfectly, and meets the high-level goals.
-
-Check for:
-1. Security vulnerabilities (input validation, SQL/Command injection, XSS, insecure dependencies).
-2. Code quality (clear structure, robust error handling, proper imports/exports, no TODOs/placeholders).
-3. Functional completeness (all requirements from goal.md are implemented).
-4. Build status (any syntax/compile errors from previous test runs).
-
-Goal Description:
-${ideaDesc}
-
-Workspace State:
-${verifierContext}
-
-Build/Compile Status:
-${devErrorLog || 'No build errors.'}
-
-If the project is completely implemented, is fully functional, has absolutely no errors, has zero placeholders/TODOs, and is ready for production, output the exact phrase: "STATUS: VERIFIED"
-Otherwise, list the remaining issues, missing features, or bugs that the AI Developer must resolve in the next iteration. Be constructive and highly specific.`;
-
-              const verifierResponse = await openai.chat.completions.create({
-                model: MODEL_NAME,
-                messages: [
-                  { role: 'system', content: 'You are an elite software auditor and QA verifier.' },
-                  { role: 'user', content: verifierPrompt }
-                ],
-                temperature: 0.1
-              });
-
-              const verifierText = verifierResponse.choices[0]?.message?.content || '';
-              appendLog(ideaId, `🕵️ QA Verifier Audit completed.`);
-
-              const isVerified = verifierText.includes('STATUS: VERIFIED');
-
-              if (isVerified) {
-                if (devErrorLog) {
-                  appendLog(ideaId, `⚠️ QA Verifier claimed VERIFIED, but there are build/compile errors. Continuing loop to resolve errors...`);
-                } else {
-                  appendLog(ideaId, `🎉 QA Verifier has officially approved the implementation and marked it as VERIFIED!`);
-                  break;
-                }
-              } else {
-                appendLog(ideaId, `❌ Verification failed. QA Verifier identified issues:\n${verifierText}`);
-                devErrorLog = verifierText;
-              }
-
-            } catch (devErr: unknown) {
-              const errMessage = devErr instanceof Error ? devErr.message : String(devErr);
-              appendLog(ideaId, `❌ Error calling AI Developer in iteration ${devIter}: ${errMessage}`);
-            }
-          }
-
-          appendLog(ideaId, `🎉 Developer loop completed successfully.`);
-          status.status = 'completed';
-          await saveAgentLoopStatus(ideaId, status);
-
-          if (ideToOpen) {
-            launchIDE(ideaId, ideToOpen);
-          }
+          await executeDeveloperLoop(ideaId, ideaTitle, ideaDesc, status, ideToOpen);
           return;
         }
       }
