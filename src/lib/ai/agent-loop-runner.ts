@@ -753,7 +753,13 @@ async function main() {
     }
   }
 
-  console.log(\`\\n🎉  \${colors.bold}\${colors.green}Consensus APPROVED! Starting Builder-Developer Loop...\${colors.reset}\\n\`);
+  console.log(\`\\n🎉  \${colors.bold}\${colors.green}Consensus APPROVED!\${colors.reset}\`);
+  const startAnswer = await askQuestion(\`\\n👉 Would you like the AI Developer to start writing code for the project? (y/n): \`);
+  if (startAnswer.trim().toLowerCase() !== 'y' && startAnswer.trim().toLowerCase() !== 'yes') {
+    console.log(\`\\n👋  \${colors.yellow}Exiting. AI Developer will not write code at this time.\${colors.reset}\\n\`);
+    process.exit(0);
+  }
+  console.log(\`\\n🚀  \${colors.bold}\${colors.green}Starting Builder-Developer Loop...\${colors.reset}\\n\`);
 
   const goalContent = fs.existsSync('goal.md') ? fs.readFileSync('goal.md', 'utf8') : 'No goal defined.';
   
