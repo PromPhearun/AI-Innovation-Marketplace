@@ -555,7 +555,7 @@ Your task is to automatically build out the complete codebase inside this worksp
 
   // Generate local .env containing OpenAI credentials for the local agent script to leverage securely
   const apiKey = process.env.OPENAI_API_KEY || '';
-  const apiBase = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1';
+  const apiBase = process.env.OPENAI_API_BASE || process.env.API_BASE_URL || 'https://api.openai.com/v1';
   const modelName = process.env.OPENAI_MODEL_NAME || MODEL_NAME;
   await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\nOPENAI_MODEL_NAME=${modelName}\n`);
 
@@ -598,9 +598,9 @@ console.log(\`  🚀 \${colors.bold}\${colors.green}Welcome to the AI Marketplac
 console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\\n\`);
 
 // 1. Load environment variables
-let apiKey = '';
-let apiBase = 'https://api.openai.com/v1';
-let modelName = 'deepseek-v4-pro';
+let apiKey = process.env.OPENAI_API_KEY || '';
+let apiBase = process.env.OPENAI_API_BASE || process.env.API_BASE_URL || 'https://litellm.deriv.ai/v1';
+let modelName = process.env.OPENAI_MODEL_NAME || 'deepseek-v4-pro';
 
 if (fs.existsSync('.env')) {
   const envContent = fs.readFileSync('.env', 'utf8');
@@ -626,14 +626,15 @@ if (fs.existsSync('kill.lock')) {
   try { fs.unlinkSync('kill.lock'); } catch(e){}
 }
 
-// 2. HTTPS Request Promise wrapper
-function callAI(messages) {
+// 2. HTTPS Request Promise wrapper with streaming support
+function callAI(messages, onChunk) {
   return new Promise((resolve, reject) => {
     const url = new URL(\`\${apiBase}/chat/completions\`);
     const postData = JSON.stringify({
       model: modelName,
       messages: messages,
-      temperature: 0.3
+      temperature: 0.3,
+      stream: true
     });
 
     const options = {
@@ -649,19 +650,60 @@ function callAI(messages) {
     };
 
     const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try {
-            const parsed = JSON.parse(data);
-            resolve(parsed.choices[0].message.content);
-          } catch (e) {
-            reject(new Error(\`Failed to parse LLM JSON: \${e.message}\`));
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        let errData = '';
+        res.on('data', chunk => errData += chunk);
+        res.on('end', () => {
+          reject(new Error(\`LLM API returned error status \${res.statusCode}: \${errData}\`));
+        });
+        return;
+      }
+
+      let buffer = '';
+      let fullText = '';
+
+      res.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed === 'data: [DONE]') continue;
+
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.slice(6);
+            try {
+              const parsed = JSON.parse(dataStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullText += content;
+                if (onChunk) onChunk(content);
+              }
+            } catch (e) {
+              // Ignore partial errors in streams
+            }
           }
-        } else {
-          reject(new Error(\`LLM API returned error status \${res.statusCode}: \${data}\`));
         }
+      });
+
+      res.on('end', () => {
+        if (buffer && buffer.startsWith('data: ')) {
+          const trimmed = buffer.trim();
+          if (trimmed !== 'data: [DONE]') {
+            const dataStr = trimmed.slice(6);
+            try {
+              const parsed = JSON.parse(dataStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) {
+                fullText += content;
+                if (onChunk) onChunk(content);
+              }
+            } catch (e) {}
+          }
+        }
+        resolve(fullText);
       });
     });
 
@@ -669,6 +711,25 @@ function callAI(messages) {
     req.write(postData);
     req.end();
   });
+}
+
+let spinnerInterval;
+function startSpinner(message) {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  process.stdout.write(message + ' ');
+  spinnerInterval = setInterval(() => {
+    process.stdout.write(\`\\r\${message} \${colors.cyan}\${frames[i]}\${colors.reset}\`);
+    i = (i + 1) % frames.length;
+  }, 100);
+}
+
+function stopSpinner() {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+    process.stdout.write('\\r\\x1B[K'); // clear the line
+  }
 }
 
 // Main Runner
@@ -757,13 +818,25 @@ Analyze the goals, create a complete folder structure, write package.json, src f
 
     conversationHistory.push({ role: 'user', content: iterationPrompt });
 
-    console.log(\`🤖 Calling AI Developer to generate/refine code...\\n\`);
+    console.log(\`🤖 Calling AI Developer to generate/refine code...\`);
     try {
-      const responseText = await callAI(conversationHistory);
+      startSpinner("Thinking");
+      let isFirstChunk = true;
+      const responseText = await callAI(conversationHistory, (chunk) => {
+        if (isFirstChunk) {
+          stopSpinner();
+          isFirstChunk = false;
+        }
+        process.stdout.write(chunk);
+      });
+      if (isFirstChunk) {
+        stopSpinner();
+      }
+      console.log(); // Print a trailing newline
       conversationHistory.push({ role: 'assistant', content: responseText });
 
       // Parse file blocks
-      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\-\\.\\/]+)\\n([\\s\\S]*?)\\n>>>>/g;
+      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\-\\.\\/]+)\\r?\\n([\\s\\S]*?)\\r?\\n>>>>/g;
       let match;
       let filesUpdated = [];
 
@@ -822,7 +895,8 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       }
 
     } catch (apiErr) {
-      console.log(\`\${colors.red}❌ Error calling AI: \${apiErr.message}\${colors.reset}\`);
+      stopSpinner();
+      console.log(\`\\n\${colors.red}❌ Error calling AI: \${apiErr.message}\${colors.reset}\`);
       break;
     }
 
@@ -951,7 +1025,7 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         const builderText = builderResponse.choices[0]?.message?.content || '';
 
         // Parse and apply files written by the Builder (allowing subdirectories)
-        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\n([\s\S]*?)\n>>>>/g;
+        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
         let match;
         const filesUpdatedThisTurn: string[] = [];
 
@@ -1127,7 +1201,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
               devHistory.push({ role: 'assistant', content: devText });
 
               // Parse and write file blocks
-              const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\n([\s\S]*?)\n>>>>/g;
+              const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
               let devMatch;
               const devFilesUpdated: string[] = [];
 
