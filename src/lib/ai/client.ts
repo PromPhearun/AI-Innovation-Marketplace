@@ -10,6 +10,15 @@ export const openai = new OpenAI({
   defaultHeaders: {
     'User-Agent': 'Deriv-Agent-Loop/1.0',
   },
+  fetch: async (url, init) => {
+    // Next.js fetch polyfill might drop User-Agent, so we enforce it
+    const newInit = init || {};
+    newInit.headers = {
+      ...newInit.headers,
+      'User-Agent': 'Deriv-Agent-Loop/1.0',
+    };
+    return fetch(url, newInit);
+  }
 });
 
 export const MODEL_NAME = process.env.OPENAI_MODEL_NAME || 'deepseek-v4-pro';
