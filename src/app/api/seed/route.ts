@@ -19,6 +19,9 @@ export async function POST() {
       votes: 0,
       comments: 0,
       summaries: 0,
+      prds: 0,
+      roadmaps: 0,
+      clickups: 0,
     };
 
     // 1. Seed Users
@@ -72,6 +75,33 @@ export async function POST() {
         const docRef = doc(db, 'summaries', summary.ideaId);
         await setDoc(docRef, summary);
         stats.summaries++;
+      }
+    }
+
+    // 7. Seed PRDs
+    if ('prds' in mockData && mockData.prds && Array.isArray(mockData.prds)) {
+      for (const prd of mockData.prds) {
+        const docRef = doc(db, 'prds', prd.ideaId);
+        await setDoc(docRef, prd);
+        stats.prds++;
+      }
+    }
+
+    // 8. Seed Roadmaps
+    if ('roadmaps' in mockData && mockData.roadmaps && Array.isArray(mockData.roadmaps)) {
+      for (const roadmap of mockData.roadmaps) {
+        const docRef = doc(db, 'roadmaps', roadmap.ideaId);
+        await setDoc(docRef, roadmap);
+        stats.roadmaps++;
+      }
+    }
+
+    // 9. Seed Clickups
+    if ('clickups' in mockData && mockData.clickups && Array.isArray(mockData.clickups)) {
+      for (const clickup of mockData.clickups) {
+        const docRef = doc(db, 'clickups', clickup.ideaId);
+        await setDoc(docRef, clickup);
+        stats.clickups++;
       }
     }
 

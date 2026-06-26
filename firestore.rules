@@ -36,5 +36,20 @@ service cloud.firestore {
     match /agentLoops/{ideaId} {
       allow read, write: if true;
     }
+
+    // PRD Collection
+    match /prds/{ideaId} {
+      allow read, write: if true;
+    }
+
+    // Roadmaps Collection
+    match /roadmaps/{ideaId} {
+      allow read, write: if true;
+    }
+
+    // Clickups Collection
+    match /clickups/{ideaId} {
+      allow read, write: if true;
+    }
   }
 }
