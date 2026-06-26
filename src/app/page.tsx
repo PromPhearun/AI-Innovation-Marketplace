@@ -115,6 +115,11 @@ export default function DashboardPage() {
 
   // Filter logic
   const filteredIdeas = ideas.filter((idea) => {
+    // Implemented ideas have graduated from Innovation Hub and live in Implemented Hub
+    if (idea.status === 'implemented') {
+      return false;
+    }
+
     // Search query match
     const matchesSearch =
       idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

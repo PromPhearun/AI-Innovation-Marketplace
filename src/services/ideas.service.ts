@@ -65,23 +65,43 @@ export const ideasService = {
     }
   },
 
-  async updateIdeaStatus(id: string, status: Idea['status'], managerComment?: string): Promise<Idea | null> {
+  async updateIdeaStatus(
+    id: string,
+    status: Idea['status'],
+    managerComment?: string,
+    systemOwner?: string,
+    backupSystemOwner?: string,
+    slackChannel?: string,
+    implementedAt?: string
+  ): Promise<Idea | null> {
     if (!isFirebaseConfigured) {
-      return mockDB.updateIdeaStatus(id, status, managerComment) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt) || null;
     }
 
     try {
       const docRef = doc(db, 'ideas', id);
-      const updateData: { status: Idea['status']; managerComment?: string } = { status };
+      const updateData: Record<string, unknown> = { status };
       if (managerComment !== undefined) {
         updateData.managerComment = managerComment;
+      }
+      if (systemOwner !== undefined) {
+        updateData.systemOwner = systemOwner;
+      }
+      if (backupSystemOwner !== undefined) {
+        updateData.backupSystemOwner = backupSystemOwner;
+      }
+      if (slackChannel !== undefined) {
+        updateData.slackChannel = slackChannel;
+      }
+      if (implementedAt !== undefined) {
+        updateData.implementedAt = implementedAt;
       }
       await updateDoc(docRef, updateData);
       const updatedSnap = await getDoc(docRef);
       return { id: updatedSnap.id, ...updatedSnap.data() } as Idea;
     } catch (error) {
       console.error('Error updating idea status in Firestore:', error);
-      return mockDB.updateIdeaStatus(id, status, managerComment) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt) || null;
     }
   },
 

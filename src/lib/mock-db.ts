@@ -189,6 +189,40 @@ class MockDB {
         expectedBenefits: 'Improve open-rates by 25% and overall retention of dormant users.',
         createdBy: 'user_3',
         createdAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(), // 12 hours ago
+      },
+      {
+        id: 'idea_live_1',
+        title: 'AI Auto-Support Agent',
+        description: 'An automated support ticket resolution engine that handles common customer inquiries using historical chat logs and knowledge base indexing.',
+        department: 'Engineering',
+        category: 'Customer Experience',
+        status: 'implemented',
+        innovationScore: 85,
+        expectedBenefits: 'Resolves 45% of incoming tier-1 tickets instantly without human agent intervention.',
+        createdBy: 'user_1',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(), // 30 days ago
+        systemOwner: 'Sarah Chen',
+        backupSystemOwner: 'John Doe',
+        slackChannel: '#support-ai-agent',
+        implementedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15).toISOString().split('T')[0], // 15 days ago
+        isManualProject: false,
+      },
+      {
+        id: 'idea_live_2',
+        title: 'Legacy Partner Onboarding Portal',
+        description: 'Secure regional onboarding form designed to allow third-party marketing affiliates to key in their registry profile, automated verification, and sign-offs.',
+        department: 'Compliance',
+        category: 'Operations',
+        status: 'implemented',
+        innovationScore: 72,
+        expectedBenefits: 'Reduces partner compliance check delays from 14 days down to under 4 hours.',
+        createdBy: 'user_2',
+        createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 60).toISOString(), // 60 days ago
+        systemOwner: 'John Doe',
+        backupSystemOwner: 'Alex Rivera',
+        slackChannel: '#compliance-partner-onboarding',
+        implementedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 45).toISOString().split('T')[0], // 45 days ago
+        isManualProject: true,
       }
     ];
 
@@ -388,7 +422,15 @@ class MockDB {
     return idea;
   }
 
-  updateIdeaStatus(id: string, status: Idea['status'], managerComment?: string): Idea | undefined {
+  updateIdeaStatus(
+    id: string,
+    status: Idea['status'],
+    managerComment?: string,
+    systemOwner?: string,
+    backupSystemOwner?: string,
+    slackChannel?: string,
+    implementedAt?: string
+  ): Idea | undefined {
     this.loadFromStorage();
     const idea = this.ideas.find(i => i.id === id);
     if (idea) {
@@ -396,6 +438,10 @@ class MockDB {
       if (managerComment !== undefined) {
         idea.managerComment = managerComment;
       }
+      if (systemOwner !== undefined) idea.systemOwner = systemOwner;
+      if (backupSystemOwner !== undefined) idea.backupSystemOwner = backupSystemOwner;
+      if (slackChannel !== undefined) idea.slackChannel = slackChannel;
+      if (implementedAt !== undefined) idea.implementedAt = implementedAt;
       this.saveToStorage();
     }
     return idea;

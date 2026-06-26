@@ -13,7 +13,7 @@ export interface Idea {
   description: string;
   department: string;
   category: string;
-  status: 'submitted' | 'under_review' | 'approved' | 'rejected';
+  status: 'submitted' | 'under_review' | 'approved' | 'rejected' | 'implemented';
   innovationScore: number;
   expectedBenefits?: string;
   createdBy: string;
@@ -22,6 +22,13 @@ export interface Idea {
   comments?: Comment[];
   clickup?: ClickUpSync;
   managerComment?: string;
+  
+  // Implementation/operational details for live apps in Project Directory
+  systemOwner?: string;
+  backupSystemOwner?: string;
+  slackChannel?: string;
+  implementedAt?: string;
+  isManualProject?: boolean;
 }
 
 export interface AIReview {

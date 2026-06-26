@@ -44,3 +44,22 @@ export const userAuthSchema = z.object({
   role: z.enum(['employee', 'manager', 'admin']),
   department: z.string().min(1, 'Department is required').trim(),
 });
+
+export const implementedAppSchema = z.object({
+  title: z
+    .string()
+    .min(5, 'App name must be at least 5 characters')
+    .max(100, 'App name cannot exceed 100 characters')
+    .trim(),
+  description: z
+    .string()
+    .min(20, 'Description must be at least 20 characters')
+    .max(2000, 'Description cannot exceed 2000 characters')
+    .trim(),
+  department: z.string().min(1, 'Department is required').trim(),
+  category: z.string().min(1, 'Category is required').trim(),
+  systemOwner: z.string().min(2, 'System Owner is required').max(100).trim(),
+  backupSystemOwner: z.string().max(100).optional().or(z.literal('')),
+  slackChannel: z.string().min(2, 'Slack Channel is required').max(100).trim(),
+  implementedAt: z.string().min(10, 'Implementation date is required'),
+});
