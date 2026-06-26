@@ -897,7 +897,7 @@ function callAI(messages, onChunk) {
         'Content-Type': 'application/json',
         'Authorization': \`Bearer \${apiKey}\`,
         'Content-Length': Buffer.byteLength(postData),
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+        'User-Agent': 'Deriv-Agent-Loop/1.0'
       }
     };
 
