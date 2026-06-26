@@ -464,9 +464,9 @@ RULES:
 2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
 3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
 4. Output your file creations or edits using this EXACT syntax:
-<<<< FILE: filename.js
+@@@ FILE: filename.js
 [exact content of the file]
->>>>
+@@@ END FILE @@@
 
 5. You can create multiple files in a single turn.
 
@@ -536,7 +536,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       devHistory.push({ role: 'assistant', content: devText });
 
       // Parse and write file blocks
-      const devFileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
+      const devFileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
       let devMatch;
       const devFilesUpdated: string[] = [];
 
@@ -1026,9 +1026,9 @@ RULES:
 2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
 3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
 4. Output your file creations or edits using this EXACT syntax:
-<<<< FILE: filename.js
+@@@ FILE: filename.js
 [exact content of the file]
->>>>
+@@@ END FILE @@@
 
 5. You can create multiple files in a single turn.
 
@@ -1093,7 +1093,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       conversationHistory.push({ role: 'assistant', content: responseText });
 
       // Parse file blocks
-      const fileRegex = /<<<< FILE:\\s*([a-zA-Z0-9_\\-\\.\\/]+)\\r?\\n([\\s\\S]*?)\\r?\\n>>>>/g;
+      const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
       let match;
       let filesUpdated = [];
 
@@ -1335,9 +1335,9 @@ Analyze these files and any critique provided previously. Rewrite or add content
 Specify the exact file paths and file contents that need to be created or overwritten.
 
 You MUST format your output as a series of instructions containing the file contents to write, like this:
-<<<< FILE: filename.md
+@@@ FILE: filename.md
 [New file content here]
->>>>
+@@@ END FILE @@@
 
 Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
 
@@ -1353,7 +1353,7 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         const builderText = builderResponse.choices[0]?.message?.content || '';
 
         // Parse and apply files written by the Builder (allowing subdirectories)
-        const fileRegex = /<<<< FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n>>>>/g;
+        const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
         let match;
         const filesUpdatedThisTurn: string[] = [];
 
