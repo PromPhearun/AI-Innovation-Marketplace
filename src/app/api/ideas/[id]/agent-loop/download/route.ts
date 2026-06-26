@@ -42,6 +42,15 @@ export async function GET(
     let workspacePath = getWorkspacePath(id);
 
     const status = await getAgentLoopStatus(id);
+
+    // Disable downloading if Builder-Critic consensus has not been reached
+    if (!status.consensusReached) {
+      return NextResponse.json(
+        { error: 'Workspace Spec Archive cannot be downloaded until Builder-Critic consensus is officially reached.' },
+        { status: 403 }
+      );
+    }
+
     const filesCreated = status.filesCreated || [];
 
     if (isFirebaseConfigured && filesCreated.length > 0) {

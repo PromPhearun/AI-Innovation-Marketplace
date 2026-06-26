@@ -343,7 +343,12 @@ export default function AgentLoopPanel({
               <button
                 type="button"
                 onClick={handleDownloadWorkspace}
-                className="w-full bg-slate-800 hover:bg-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:border dark:border-slate-800 text-slate-200 font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm"
+                disabled={!status?.consensusReached}
+                className={`w-full font-bold text-xs py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm ${
+                  !status?.consensusReached
+                    ? 'bg-slate-200 dark:bg-slate-800/50 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-60 border border-slate-100 dark:border-slate-800/40'
+                    : 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 dark:border dark:border-slate-800 text-slate-200'
+                }`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -670,18 +675,6 @@ export default function AgentLoopPanel({
 
             {/* Modal Footer */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50">
-              {status && status.filesCreated.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowIdeGuideModal(false);
-                    handleDownloadWorkspace();
-                  }}
-                  className="px-4 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-md"
-                >
-                  Download Zip Now
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setShowIdeGuideModal(false)}
