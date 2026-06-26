@@ -26,13 +26,41 @@ export default function DashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/ideas');
-      const data: Idea[] = await res.json();
-      setIdeas(data);
+      
+      let data: Idea[] = [];
+      try {
+        const res = await fetch('/api/ideas');
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (err) {
+        console.error('Network error fetching ideas list from server:', err);
+      }
 
+      // Merge local storage ideas
+      const mergedIdeas = [...data];
       const votesMap: { [ideaId: string]: Vote[] } = {};
-      let needsFallback = false;
 
+      if (typeof window !== 'undefined') {
+        try {
+          const localIdeas = JSON.parse(localStorage.getItem('local_submitted_ideas') || '[]');
+          const serverIds = new Set(data.map((item) => item.id));
+          for (const local of localIdeas) {
+            if (!serverIds.has(local.id)) {
+              // Prepend local items
+              mergedIdeas.unshift(local);
+              // Setup local votes if any
+              votesMap[local.id] = local.votes || [];
+            }
+          }
+        } catch (e) {
+          console.error('Error merging local ideas:', e);
+        }
+      }
+
+      setIdeas(mergedIdeas);
+
+      let needsFallback = false;
       for (const idea of data) {
         if (idea.votes) {
           votesMap[idea.id] = idea.votes;
@@ -45,10 +73,14 @@ export default function DashboardPage() {
       if (needsFallback) {
         // Fallback to individual fetches if API didn't return votes
         for (const idea of data) {
-          const detailsRes = await fetch(`/api/ideas/${idea.id}`);
-          if (detailsRes.ok) {
-            const details = await detailsRes.json();
-            votesMap[idea.id] = details.votes || [];
+          try {
+            const detailsRes = await fetch(`/api/ideas/${idea.id}`);
+            if (detailsRes.ok) {
+              const details = await detailsRes.json();
+              votesMap[idea.id] = details.votes || [];
+            }
+          } catch (e) {
+            console.error(`Error fetching votes fallback for ${idea.id}:`, e);
           }
         }
       }

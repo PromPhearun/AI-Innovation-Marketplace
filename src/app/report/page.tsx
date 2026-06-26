@@ -118,12 +118,33 @@ export default function ReportPage() {
     const fetchReportData = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/ideas');
-        if (!res.ok) {
-          throw new Error('Failed to load ideas data');
+        let data: Idea[] = [];
+        try {
+          const res = await fetch('/api/ideas');
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch (err) {
+          console.error('Network error fetching reports data:', err);
         }
-        const data: Idea[] = await res.json();
-        setIdeas(data);
+
+        // Merge local storage ideas
+        const mergedIdeas = [...data];
+        if (typeof window !== 'undefined') {
+          try {
+            const localIdeas = JSON.parse(localStorage.getItem('local_submitted_ideas') || '[]');
+            const serverIds = new Set(data.map((item) => item.id));
+            for (const local of localIdeas) {
+              if (!serverIds.has(local.id)) {
+                mergedIdeas.unshift(local);
+              }
+            }
+          } catch (e) {
+            console.error('Error merging local ideas:', e);
+          }
+        }
+
+        setIdeas(mergedIdeas);
       } catch (err) {
         console.error('Error fetching report details:', err);
         setError('We were unable to load the visual reports dashboard. Please try again later.');

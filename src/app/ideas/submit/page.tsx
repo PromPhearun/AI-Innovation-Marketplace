@@ -156,6 +156,19 @@ export default function SubmitIdeaPage() {
 
       const responseData = await res.json();
       
+      // Save to localStorage so that client can fall back immediately if server has lag/cold starts/404s
+      if (typeof window !== 'undefined' && responseData?.idea) {
+        try {
+          const localIdeas = JSON.parse(localStorage.getItem('local_submitted_ideas') || '[]');
+          // Remove duplicates if any
+          const filtered = localIdeas.filter((item: { id: string }) => item.id !== responseData.idea.id);
+          filtered.push(responseData.idea);
+          localStorage.setItem('local_submitted_ideas', JSON.stringify(filtered));
+        } catch (e) {
+          console.error('Error saving local idea:', e);
+        }
+      }
+      
       // Let the loader finish nicely
       setEvaluationStage(evaluationStages.length - 1);
       setTimeout(() => {

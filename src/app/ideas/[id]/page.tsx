@@ -271,19 +271,52 @@ export default function IdeaDetailsPage() {
   const fetchIdeaDetails = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/ideas/${id}?t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) {
-        setIdea(null);
-        return;
+      interface IdeaDetailsResponse {
+        idea: Idea;
+        votes?: Vote[];
+        comments?: Comment[];
+        reviews?: AIReview[];
+        summary?: { summary: string };
       }
-      const data = await res.json();
-      setIdea(data.idea);
-      setVotes(data.votes || []);
-      setComments(data.comments || []);
-      setReviews(data.reviews || []);
-      setSummary(data.summary?.summary || null);
-      if (data.idea) {
-        setManagerCommentInput(data.idea.managerComment || '');
+      let data: IdeaDetailsResponse | null = null;
+      try {
+        const res = await fetch(`/api/ideas/${id}?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (err) {
+        console.error('Network error fetching details:', err);
+      }
+
+      if (data) {
+        setIdea(data.idea);
+        setVotes(data.votes || []);
+        setComments(data.comments || []);
+        setReviews(data.reviews || []);
+        setSummary(data.summary?.summary || null);
+        if (data.idea) {
+          setManagerCommentInput(data.idea.managerComment || '');
+        }
+      } else {
+        // Fallback: Check localStorage for locally saved submission
+        if (typeof window !== 'undefined') {
+          try {
+            const localIdeas = JSON.parse(localStorage.getItem('local_submitted_ideas') || '[]');
+            const found = localIdeas.find((item: { id: string }) => item.id === id);
+            if (found) {
+              setIdea(found);
+              setVotes(found.votes || []);
+              setComments(found.comments || []);
+              setReviews(found.reviews || found.evaluationResults || []);
+              setSummary(found.executiveSummary || null);
+              setManagerCommentInput(found.managerComment || '');
+              return;
+            }
+          } catch (e) {
+            console.error('Error parsing local submitted ideas fallback:', e);
+          }
+        }
+        setIdea(null);
       }
     } catch (err) {
       console.error('Error fetching details:', err);
