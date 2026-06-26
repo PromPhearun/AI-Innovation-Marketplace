@@ -76,6 +76,20 @@ export function Sidebar() {
           )
         }
       ]
+    },
+    {
+      title: 'Future Development',
+      items: [
+        {
+          name: 'Integrate Deriv Brain',
+          href: '/future/deriv-brain',
+          icon: (active: boolean) => (
+            <svg className={`w-5 h-5 ${active ? 'text-violet-600 dark:text-violet-400' : 'text-slate-500 dark:text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+          )
+        }
+      ]
     }
   ];
 
@@ -122,11 +136,17 @@ export function Sidebar() {
                     LIVE
                   </span>
                 )}
+                {section.title === 'Future Development' && (
+                  <span className="bg-violet-500/10 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 text-[8px] rounded-full font-bold border border-violet-500/20">
+                    SOON
+                  </span>
+                )}
               </div>
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const active = pathname === item.href;
                   const isImplementedItem = section.title === 'Implemented Hub';
+                  const isFutureItem = section.title === 'Future Development';
                   return (
                     <button
                       key={item.name}
@@ -135,7 +155,9 @@ export function Sidebar() {
                         active
                           ? isImplementedItem
                             ? 'bg-emerald-600/10 dark:bg-emerald-600/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10'
-                            : 'bg-indigo-600/10 dark:bg-indigo-600/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10'
+                            : isFutureItem
+                              ? 'bg-violet-600/10 dark:bg-violet-600/15 text-violet-600 dark:text-violet-400 border border-violet-500/10'
+                              : 'bg-indigo-600/10 dark:bg-indigo-600/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/10'
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
                       }`}
                     >
