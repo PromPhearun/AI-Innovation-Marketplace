@@ -14,6 +14,7 @@ export default function ActiveAppsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedMadeBy, setSelectedMadeBy] = useState<'All' | 'Deriv' | 'Third Party'>('All');
   const [sortBy, setSortBy] = useState<'implemented_newest' | 'implemented_oldest' | 'title_asc' | 'score_desc'>('implemented_newest');
 
   const fetchImplementedApps = async () => {
@@ -62,6 +63,10 @@ export default function ActiveAppsPage() {
   const departments = ['All', ...Array.from(new Set(implementedApps.map((i) => formatDept(i.department))))];
   const categories = ['All', ...Array.from(new Set(implementedApps.map((i) => i.category)))];
 
+  // Counts for Made By filter
+  const derivCount = implementedApps.filter((a) => !a.madeBy || a.madeBy === 'Deriv').length;
+  const thirdPartyCount = implementedApps.filter((a) => a.madeBy === 'Third Party').length;
+
   // Filtering
   const filteredApps = implementedApps.filter((app) => {
     const matchesSearch =
@@ -76,7 +81,12 @@ export default function ActiveAppsPage() {
 
     const matchesCategory = selectedCategory === 'All' || app.category === selectedCategory;
 
-    return matchesSearch && matchesDept && matchesCategory;
+    const matchesMadeBy =
+      selectedMadeBy === 'All' ||
+      (selectedMadeBy === 'Deriv' && (!app.madeBy || app.madeBy === 'Deriv')) ||
+      (selectedMadeBy === 'Third Party' && app.madeBy === 'Third Party');
+
+    return matchesSearch && matchesDept && matchesCategory && matchesMadeBy;
   });
 
   // Sorting
@@ -207,6 +217,20 @@ export default function ActiveAppsPage() {
                 ))}
               </select>
             </div>
+
+            {/* Made By */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-500 dark:text-slate-400 font-semibold px-0.5">Made By</label>
+              <select
+                value={selectedMadeBy}
+                onChange={(e) => setSelectedMadeBy(e.target.value as 'All' | 'Deriv' | 'Third Party')}
+                className="w-full text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:border-emerald-500 transition-all font-medium"
+              >
+                <option value="All">All ({implementedApps.length})</option>
+                <option value="Deriv">Deriv ({derivCount})</option>
+                <option value="Third Party">Third Party ({thirdPartyCount})</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -254,6 +278,22 @@ export default function ActiveAppsPage() {
                       <span className="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md font-semibold">
                         {formatDept(app.department)}
                       </span>
+                      {/* Made By Badge */}
+                      {(!app.madeBy || app.madeBy === 'Deriv') ? (
+                        <span className="text-[10px] font-bold border rounded-md px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 flex items-center gap-1">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                          </svg>
+                          Deriv
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold border rounded-md px-2 py-0.5 bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 flex items-center gap-1">
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                          </svg>
+                          3rd Party
+                        </span>
+                      )}
                     </div>
 
                     {app.innovationScore > 0 && (

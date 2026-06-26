@@ -26,6 +26,7 @@ export async function POST(request: Request) {
       backupSystemOwner,
       slackChannel,
       implementedAt,
+      madeBy,
     } = validated.data;
 
     // Get creator ID from headers (simulating session auth)
@@ -50,6 +51,7 @@ export async function POST(request: Request) {
       slackChannel,
       implementedAt,
       isManualProject: true,
+      madeBy,
     };
 
     // Save to DB

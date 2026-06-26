@@ -42,6 +42,8 @@ export interface Idea {
   isManualProject?: boolean;
   /** AI-generated or admin-provided short description shown in Active Apps directory */
   appDescription?: string;
+  /** Indicates whether the app was made by Deriv or a Third Party */
+  madeBy?: 'Deriv' | 'Third Party';
 }
 
 export interface AIReview {

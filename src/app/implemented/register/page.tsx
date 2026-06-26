@@ -18,6 +18,7 @@ export default function RegisterImplementedPage() {
   const [systemOwner, setSystemOwner] = useState('');
   const [backupSystemOwner, setBackupSystemOwner] = useState('');
   const [slackChannel, setSlackChannel] = useState('');
+  const [madeBy, setMadeBy] = useState<'Deriv' | 'Third Party'>('Deriv');
   const [implementedAt, setImplementedAt] = useState(() => {
     return new Date().toISOString().substring(0, 10); // Default to today
   });
@@ -41,6 +42,7 @@ export default function RegisterImplementedPage() {
       backupSystemOwner: backupSystemOwner || undefined,
       slackChannel,
       implementedAt,
+      madeBy,
     });
 
     if (!result.success) {
@@ -239,6 +241,44 @@ export default function RegisterImplementedPage() {
                 <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{formErrors.backupSystemOwner}</p>
               )}
             </div>
+          </div>
+
+          {/* Made By */}
+          <div className="space-y-1.5 border-t border-slate-100 dark:border-slate-900 pt-4">
+            <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+              Made By
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setMadeBy('Deriv')}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                  madeBy === 'Deriv'
+                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-indigo-400 dark:hover:border-indigo-600'
+                }`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                Deriv
+              </button>
+              <button
+                type="button"
+                onClick={() => setMadeBy('Third Party')}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                  madeBy === 'Third Party'
+                    ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-500/20'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-violet-400 dark:hover:border-violet-600'
+                }`}
+              >
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                Third Party
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">Select whether this app was built by Deriv or an external third party.</p>
           </div>
 
           {/* Communication & Launch Grid */}

@@ -62,4 +62,5 @@ export const implementedAppSchema = z.object({
   backupSystemOwner: z.string().max(100).optional().or(z.literal('')),
   slackChannel: z.string().min(2, 'Slack Channel is required').max(100).trim(),
   implementedAt: z.string().min(10, 'Implementation date is required'),
+  madeBy: z.enum(['Deriv', 'Third Party']).default('Deriv'),
 });
