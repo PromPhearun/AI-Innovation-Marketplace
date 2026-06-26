@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import os from 'os';
-import { validateId, getAgentLoopStatus, readWorkspaceFile } from '@/lib/ai/agent-loop-runner';
+import { validateId, getAgentLoopStatus, readWorkspaceFile, getWorkspacePath } from '@/lib/ai/agent-loop-runner';
 import { isFirebaseConfigured } from '@/lib/firebase/config';
 
 export async function GET(
@@ -39,7 +39,7 @@ export async function GET(
     };
 
     const WORKSPACE_BASE = getWorkspaceBase();
-    let workspacePath = path.join(WORKSPACE_BASE, `idea_${id}`);
+    let workspacePath = getWorkspacePath(id);
 
     const status = await getAgentLoopStatus(id);
     const filesCreated = status.filesCreated || [];

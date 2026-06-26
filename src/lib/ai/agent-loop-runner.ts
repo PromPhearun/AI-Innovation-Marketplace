@@ -93,6 +93,11 @@ const getWorkspaceBase = () => {
 
 const WORKSPACE_BASE = getWorkspaceBase();
 
+export function getWorkspacePath(ideaId: string): string {
+  const folderName = ideaId.startsWith('idea_') ? ideaId : `idea_${ideaId}`;
+  return path.join(WORKSPACE_BASE, folderName);
+}
+
 // Helper to save Agent Loop Status (caches in memory and, if firebase is configured, saves to Firestore)
 export async function saveAgentLoopStatus(ideaId: string, status: LoopStatus): Promise<void> {
   if (!validateId(ideaId)) {
@@ -173,7 +178,7 @@ export async function getAgentLoopStatus(ideaId: string): Promise<LoopStatus> {
   }
 
   // Local filesystem fallback
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   const historyPath = path.join(workspacePath, 'prompthistory.md');
   
   let history = '';
@@ -225,7 +230,7 @@ export async function writeWorkspaceFile(ideaId: string, filename: string, conte
 
   // 2. Local Disk Write
   try {
-    const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+    const workspacePath = getWorkspacePath(ideaId);
     const filePath = path.join(workspacePath, filename);
     const dirPath = path.dirname(filePath);
     if (dirPath && !fs.existsSync(dirPath)) {
@@ -266,7 +271,7 @@ export async function readWorkspaceFile(ideaId: string, filename: string): Promi
   }
 
   // 2. Local fallback
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   const filePath = path.join(workspacePath, filename);
   if (fs.existsSync(filePath)) {
     return fs.readFileSync(filePath, 'utf8');
@@ -286,7 +291,7 @@ export async function workspaceFileExists(ideaId: string, filename: string): Pro
     return true;
   }
 
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   const filePath = path.join(workspacePath, filename);
   return fs.existsSync(filePath);
 }
@@ -308,7 +313,7 @@ export function stopAgentLoop(ideaId: string) {
   }
 
   // Also write a kill.lock file in the workspace directory if it exists, to stop any running local terminal agent loop instantly
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   try {
     if (!fs.existsSync(WORKSPACE_BASE)) {
       fs.mkdirSync(WORKSPACE_BASE, { recursive: true });
@@ -340,7 +345,7 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
     return false;
   }
 
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   
   // Verify directory exists
   if (!fs.existsSync(workspacePath)) {
@@ -443,7 +448,7 @@ export async function executeDeveloperLoop(
   status: LoopStatus,
   ideToOpen?: 'vscode' | 'cursor' | 'kiro'
 ) {
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   
   // Start automated Developer loop (5 cycles) to write actual code files
   appendLog(ideaId, `🚀 Consensus reached! Initiating 5-iteration automated Developer Code-Writing Loop...`);
@@ -757,7 +762,7 @@ Your task is to automatically build out the complete codebase inside this worksp
   }
 
   // Ensure we delete any existing kill-switch lock on fresh loop start
-  const workspacePath = path.join(WORKSPACE_BASE, `idea_${ideaId}`);
+  const workspacePath = getWorkspacePath(ideaId);
   const killLockPath = path.join(workspacePath, 'kill.lock');
   if (fs.existsSync(killLockPath)) {
     try {

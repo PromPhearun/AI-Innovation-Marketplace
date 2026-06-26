@@ -20,6 +20,11 @@ export default function AgentLoopPanel({
   const [pollingActive, setPollingActive] = useState(false);
   const terminalContainerRef = useRef<HTMLDivElement>(null);
 
+  const [viewingFile, setViewingFile] = useState<string | null>(null);
+  const [viewingContent, setViewingContent] = useState<string>('');
+  const [isViewingLoading, setIsViewingLoading] = useState(false);
+  const [showIdeGuideModal, setShowIdeGuideModal] = useState(false);
+
   // Poll status from the API
   const fetchStatus = async () => {
     try {
@@ -80,6 +85,12 @@ export default function AgentLoopPanel({
         const data = await res.json();
         setStatus(data.status);
         setPollingActive(true);
+        const isCloudEnv = typeof window !== 'undefined' && 
+          window.location.hostname !== 'localhost' && 
+          window.location.hostname !== '127.0.0.1';
+        if (isCloudEnv && !isRunBefore) {
+          setShowIdeGuideModal(true);
+        }
       } else {
         alert('Failed to start agent loop. Check server logs.');
       }
@@ -113,6 +124,15 @@ export default function AgentLoopPanel({
 
   // Trigger IDE launch
   const handleLaunchIDE = async () => {
+    const isCloudEnv = typeof window !== 'undefined' && 
+      window.location.hostname !== 'localhost' && 
+      window.location.hostname !== '127.0.0.1';
+
+    if (isCloudEnv) {
+      setShowIdeGuideModal(true);
+      return;
+    }
+
     setIsActionLoading(true);
     try {
       const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
@@ -139,6 +159,26 @@ export default function AgentLoopPanel({
   // Download complete workspace
   const handleDownloadWorkspace = () => {
     window.location.href = `/api/ideas/${ideaId}/agent-loop/download`;
+  };
+
+  const handleViewFile = async (filename: string) => {
+    setViewingFile(filename);
+    setViewingContent('');
+    setIsViewingLoading(true);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/agent-loop?file=${encodeURIComponent(filename)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setViewingContent(data.content || '');
+      } else {
+        setViewingContent('Error: Failed to load file contents.');
+      }
+    } catch (err) {
+      console.error(err);
+      setViewingContent('Error: Network connection failed.');
+    } finally {
+      setIsViewingLoading(false);
+    }
   };
 
   const getStatusBadge = (statusStr: string) => {
@@ -193,6 +233,8 @@ export default function AgentLoopPanel({
   const buttonText = isRunBefore 
     ? 'Run Spec Engine for 5 More Cycles' 
     : 'Launch Spec Engine & Open IDE';
+
+  const displayFolderName = ideaId.startsWith('idea_') ? ideaId : `idea_${ideaId}`;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -413,37 +455,44 @@ export default function AgentLoopPanel({
         </div>
 
         {/* WORKSPACE FILES */}
-        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl space-y-4 shadow-sm h-[400px] flex flex-col">
+        <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl space-y-4 shadow-sm h-[400px] flex flex-col min-w-0">
           <div className="space-y-1">
             <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Workspace Spec Artifacts
             </h4>
-            <p className="text-[10px] text-slate-500">
-              Spec documents created recursively within <code>./agent_workspace/idea_{ideaId}/</code>.
+            <p className="text-[10px] text-slate-500 break-all leading-normal">
+              Spec documents created recursively within <code className="break-all font-mono select-all bg-slate-100 dark:bg-slate-900 px-1 py-0.5 rounded">./agent_workspace/{displayFolderName}/</code>.
             </p>
           </div>
 
           <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
             {status && status.filesCreated.length > 0 ? (
               status.filesCreated.map((filename) => (
-                <div
+                <button
                   key={filename}
-                  className="bg-slate-50 dark:bg-slate-900/60 hover:bg-indigo-500/5 hover:border-indigo-500/20 border border-slate-200 dark:border-slate-800/80 p-3 rounded-xl flex items-center justify-between group transition-all"
+                  type="button"
+                  onClick={() => handleViewFile(filename)}
+                  className="w-full text-left bg-slate-50 dark:bg-slate-900/60 hover:bg-indigo-500/5 hover:border-indigo-500/20 border border-slate-200 dark:border-slate-800/80 p-3 rounded-xl flex items-center justify-between group transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <svg className="w-5 h-5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <div className="space-y-0.5">
-                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate max-w-[120px] md:max-w-[160px]">
+                    <div className="space-y-0.5 min-w-0 flex-1">
+                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
                         {filename}
                       </div>
                       <div className="text-[9px] text-slate-500 font-mono">
-                        Markdown Document
+                        {filename.endsWith('.md') ? 'Markdown Spec' : filename.endsWith('.json') ? 'JSON Config' : filename.endsWith('.js') || filename.endsWith('.ts') ? 'Source Code' : 'Text Document'}
                       </div>
                     </div>
                   </div>
-                </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wider bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                      View
+                    </span>
+                  </div>
+                </button>
               ))
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 text-xs py-8 space-y-2 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
@@ -473,6 +522,174 @@ export default function AgentLoopPanel({
             <pre className="text-xs text-slate-700 dark:text-slate-300 font-mono whitespace-pre-wrap selection:bg-indigo-500/20">
               {status.history}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {/* FILE VIEWER MODAL */}
+      {viewingFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white font-mono break-all pr-4">
+                    {viewingFile}
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Workspace Spec Artifact Viewer
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingFile(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-900/40 min-h-[300px]">
+              {isViewingLoading ? (
+                <div className="h-full flex flex-col items-center justify-center py-20 space-y-3">
+                  <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-slate-500 animate-pulse font-medium">Fetching artifact content...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-white dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 font-mono pl-2">
+                      {viewingFile.split('.').pop()?.toUpperCase() || 'TEXT'} Document
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(viewingContent);
+                        alert('Copied to clipboard!');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg transition-all"
+                    >
+                      <svg className="w-3.5 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2h2a2 2 0 002-2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                      </svg>
+                      Copy File Contents
+                    </button>
+                  </div>
+                  <div className="bg-slate-950 rounded-xl border border-slate-900 shadow-inner p-5 overflow-x-auto">
+                    <pre className="text-xs text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
+                      {viewingContent || <span className="text-slate-600 italic">This file is empty.</span>}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900/50">
+              <button
+                type="button"
+                onClick={() => setViewingFile(null)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm"
+              >
+                Close Viewer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CLOUD ENVIRONMENT IDE GUIDE MODAL */}
+      {showIdeGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🚀</span>
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Local IDE Launch Guidance
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Running in Cloud Environment
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowIdeGuideModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl flex gap-3 text-amber-800 dark:text-amber-300">
+                <span className="text-sm mt-0.5">⚠️</span>
+                <div>
+                  <strong className="font-extrabold text-[11px] block uppercase tracking-wider mb-0.5">Browser Sandbox Security</strong>
+                  This application is running in a secure, hosted cloud sandbox. Browsers do not permit websites to execute local shell commands or launch applications like {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'} directly on your local computer for security reasons.
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 dark:text-slate-200">
+                  Follow these simple steps to load this workspace locally:
+                </p>
+                <ol className="list-decimal pl-5 space-y-2 text-slate-600 dark:text-slate-400">
+                  <li>
+                    Click the <strong className="text-slate-800 dark:text-slate-200">Download Workspace Spec Archive (.zip)</strong> button in the UI.
+                  </li>
+                  <li>
+                    Extract the downloaded zip archive to any folder on your local computer.
+                  </li>
+                  <li>
+                    Open that folder in <strong className="text-slate-800 dark:text-slate-200 capitalize">{selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}</strong>.
+                  </li>
+                  <li>
+                    Open the integrated terminal in your IDE and run:
+                    <div className="bg-slate-900 text-slate-200 font-mono p-2 rounded-lg border border-slate-800 mt-1 select-all shadow-inner flex items-center justify-between text-[11px]">
+                      <span>node agent_loop.js</span>
+                    </div>
+                  </li>
+                </ol>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50">
+              {status && status.filesCreated.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowIdeGuideModal(false);
+                    handleDownloadWorkspace();
+                  }}
+                  className="px-4 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-md"
+                >
+                  Download Zip Now
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowIdeGuideModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 transition-all shadow-sm"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

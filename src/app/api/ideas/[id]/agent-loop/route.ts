@@ -6,6 +6,8 @@ import {
   stopAgentLoop,
   validateId,
   launchIDE,
+  readWorkspaceFile,
+  validateWorkspaceFilePath,
 } from '@/lib/ai/agent-loop-runner';
 
 export async function GET(
@@ -18,6 +20,17 @@ export async function GET(
     // Strict input validation
     if (!id || typeof id !== 'string' || !validateId(id)) {
       return NextResponse.json({ error: 'Invalid idea ID format' }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const file = searchParams.get('file');
+
+    if (file) {
+      if (!validateWorkspaceFilePath(file)) {
+        return NextResponse.json({ error: 'Invalid file path format' }, { status: 400 });
+      }
+      const content = await readWorkspaceFile(id, file);
+      return NextResponse.json({ file, content });
     }
 
     const status = await getAgentLoopStatus(id);
