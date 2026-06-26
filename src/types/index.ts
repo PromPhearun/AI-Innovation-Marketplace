@@ -7,6 +7,14 @@ export interface User {
   createdAt: string;
 }
 
+export interface ManagerComment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  comment: string;
+  createdAt: string;
+}
+
 export interface Idea {
   id: string;
   title: string;
@@ -21,14 +29,19 @@ export interface Idea {
   votes?: Vote[];
   comments?: Comment[];
   clickup?: ClickUpSync;
+  /** @deprecated Use managerComments array instead. Kept for backward compatibility. */
   managerComment?: string;
-  
+  /** Append-only array of manager/admin comments */
+  managerComments?: ManagerComment[];
+
   // Implementation/operational details for live apps in Project Directory
   systemOwner?: string;
   backupSystemOwner?: string;
   slackChannel?: string;
   implementedAt?: string;
   isManualProject?: boolean;
+  /** AI-generated or admin-provided short description shown in Active Apps directory */
+  appDescription?: string;
 }
 
 export interface AIReview {

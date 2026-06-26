@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ideasService } from '@/services/ideas.service';
+import { usersService } from '@/services/users.service';
 
 async function handleStatusUpdate(
   request: Request,
@@ -8,7 +9,7 @@ async function handleStatusUpdate(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt } = body;
+    const { status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt, appDescription } = body;
 
     const allowedStatuses = ['submitted', 'under_review', 'approved', 'rejected', 'implemented'] as const;
     if (!status || !allowedStatuses.includes(status)) {
@@ -16,6 +17,29 @@ async function handleStatusUpdate(
         { error: `Invalid status. Must be one of ${allowedStatuses.join(', ')}` },
         { status: 400 }
       );
+    }
+
+    // --- Admin-only enforcement: only admin can revert an idea OUT of 'implemented' ---
+    const currentIdea = await ideasService.getIdea(id);
+    if (!currentIdea) {
+      return NextResponse.json({ error: 'Idea not found' }, { status: 404 });
+    }
+
+    if (currentIdea.status === 'implemented' && status !== 'implemented') {
+      const userId = request.headers.get('x-user-id');
+      if (!userId) {
+        return NextResponse.json(
+          { error: 'Unauthorized: missing x-user-id header' },
+          { status: 401 }
+        );
+      }
+      const user = await usersService.getUser(userId);
+      if (!user || user.role !== 'admin') {
+        return NextResponse.json(
+          { error: 'Forbidden: only admins can revert an implemented app back to Innovation Hub' },
+          { status: 403 }
+        );
+      }
     }
 
     let validatedComment: string | undefined = undefined;
@@ -40,6 +64,7 @@ async function handleStatusUpdate(
     let validatedBackupOwner: string | undefined = undefined;
     let validatedSlackChannel: string | undefined = undefined;
     let validatedImplementedAt: string | undefined = undefined;
+    let validatedAppDescription: string | undefined = undefined;
 
     if (status === 'implemented') {
       if (!systemOwner || typeof systemOwner !== 'string' || systemOwner.trim().length === 0) {
@@ -81,6 +106,17 @@ async function handleStatusUpdate(
         return NextResponse.json({ error: 'Implementation date must be in YYYY-MM-DD format' }, { status: 400 });
       }
       validatedImplementedAt = implementedAt;
+
+      // appDescription is optional — if provided, validate it
+      if (appDescription !== undefined && appDescription !== null && appDescription !== '') {
+        if (typeof appDescription !== 'string') {
+          return NextResponse.json({ error: 'App description must be a string' }, { status: 400 });
+        }
+        if (appDescription.length > 500) {
+          return NextResponse.json({ error: 'App description must be 500 characters or less' }, { status: 400 });
+        }
+        validatedAppDescription = appDescription.trim();
+      }
     }
 
     const updatedIdea = await ideasService.updateIdeaStatus(
@@ -90,7 +126,8 @@ async function handleStatusUpdate(
       validatedSystemOwner,
       validatedBackupOwner,
       validatedSlackChannel,
-      validatedImplementedAt
+      validatedImplementedAt,
+      validatedAppDescription
     );
     if (!updatedIdea) {
       return NextResponse.json({ error: 'Idea not found' }, { status: 404 });

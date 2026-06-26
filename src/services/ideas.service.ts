@@ -1,6 +1,6 @@
 import { isFirebaseConfigured, db } from '@/lib/firebase/config';
 import { mockDB } from '@/lib/mock-db';
-import { Idea, Vote, Comment, Summary, PRD, Roadmap, RoadmapPhase, ClickUpSync } from '@/types';
+import { Idea, Vote, Comment, Summary, PRD, Roadmap, RoadmapPhase, ClickUpSync, ManagerComment } from '@/types';
 import {
   doc,
   getDoc,
@@ -72,10 +72,11 @@ export const ideasService = {
     systemOwner?: string,
     backupSystemOwner?: string,
     slackChannel?: string,
-    implementedAt?: string
+    implementedAt?: string,
+    appDescription?: string
   ): Promise<Idea | null> {
     if (!isFirebaseConfigured) {
-      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt, appDescription) || null;
     }
 
     try {
@@ -96,12 +97,37 @@ export const ideasService = {
       if (implementedAt !== undefined) {
         updateData.implementedAt = implementedAt;
       }
+      if (appDescription !== undefined) {
+        updateData.appDescription = appDescription;
+      }
       await updateDoc(docRef, updateData);
       const updatedSnap = await getDoc(docRef);
       return { id: updatedSnap.id, ...updatedSnap.data() } as Idea;
     } catch (error) {
       console.error('Error updating idea status in Firestore:', error);
-      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt) || null;
+      return mockDB.updateIdeaStatus(id, status, managerComment, systemOwner, backupSystemOwner, slackChannel, implementedAt, appDescription) || null;
+    }
+  },
+
+  async addManagerComment(ideaId: string, comment: ManagerComment): Promise<Idea | null> {
+    if (!isFirebaseConfigured) {
+      return mockDB.addManagerComment(ideaId, comment) || null;
+    }
+
+    try {
+      const docRef = doc(db, 'ideas', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) return null;
+
+      const existing = docSnap.data() as Idea;
+      const updatedComments = [...(existing.managerComments ?? []), comment];
+      await updateDoc(docRef, { managerComments: updatedComments });
+
+      const updatedSnap = await getDoc(docRef);
+      return { id: updatedSnap.id, ...updatedSnap.data() } as Idea;
+    } catch (error) {
+      console.error('Error adding manager comment in Firestore:', error);
+      return mockDB.addManagerComment(ideaId, comment) || null;
     }
   },
 
@@ -414,6 +440,47 @@ export const ideasService = {
     } catch (error) {
       console.error('Error saving ClickUpSync to Firestore:', error);
       mockDB.saveClickUpSync(clickup);
+    }
+  },
+
+  async deleteIdea(id: string): Promise<boolean> {
+    if (!isFirebaseConfigured) {
+      return mockDB.deleteIdea(id);
+    }
+
+    try {
+      // Delete the idea document
+      await deleteDoc(doc(db, 'ideas', id));
+
+      // Cascade-delete related collections
+      const collectionsToClean: Array<{ name: string; field: string }> = [
+        { name: 'votes', field: 'ideaId' },
+        { name: 'comments', field: 'ideaId' },
+        { name: 'reviews', field: 'ideaId' },
+      ];
+
+      for (const col of collectionsToClean) {
+        const q = query(collection(db, col.name), where(col.field, '==', id));
+        const snapshot = await getDocs(q);
+        for (const docSnap of snapshot.docs) {
+          await deleteDoc(docSnap.ref);
+        }
+      }
+
+      // Delete single-document collections keyed by ideaId
+      const singleDocCollections = ['summaries', 'prds', 'roadmaps', 'clickups'];
+      for (const colName of singleDocCollections) {
+        try {
+          await deleteDoc(doc(db, colName, id));
+        } catch {
+          // Ignore if document doesn't exist
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting idea from Firestore:', error);
+      return mockDB.deleteIdea(id);
     }
   }
 };

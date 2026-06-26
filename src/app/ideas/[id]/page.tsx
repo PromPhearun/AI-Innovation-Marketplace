@@ -5,7 +5,7 @@ import { LayoutWrapper } from '@/components/layout-wrapper';
 import AgentLoopPanel from '@/components/agent-loop-panel';
 import { useUser } from '@/context/user-context';
 import { useParams, useRouter } from 'next/navigation';
-import { Idea, Vote, Comment, AIReview, PRD, Roadmap, ClickUpSync } from '@/types';
+import { Idea, Vote, Comment, AIReview, PRD, Roadmap, ClickUpSync, ManagerComment } from '@/types';
 
 interface ParsedSections {
   title?: string;
@@ -264,9 +264,6 @@ export default function IdeaDetailsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
-  const [managerCommentInput, setManagerCommentInput] = useState('');
-  const [savingComment, setSavingComment] = useState(false);
-
   // Implemented Hub Transition States
   const [showImplementationModal, setShowImplementationModal] = useState(false);
   const [systemOwnerInput, setSystemOwnerInput] = useState('');
@@ -274,6 +271,12 @@ export default function IdeaDetailsPage() {
   const [slackChannelInput, setSlackChannelInput] = useState('');
   const [implementedAtInput, setImplementedAtInput] = useState(new Date().toISOString().split('T')[0]);
   const [implementationError, setImplementationError] = useState<string | null>(null);
+  const [appDescriptionInput, setAppDescriptionInput] = useState('');
+  const [isGeneratingAppDesc, setIsGeneratingAppDesc] = useState(false);
+
+  const [newManagerCommentText, setNewManagerCommentText] = useState('');
+  const [postingManagerComment, setPostingManagerComment] = useState(false);
+  const [revertingFromImplemented, setRevertingFromImplemented] = useState(false);
 
   // Loaders
   const fetchIdeaDetails = useCallback(async () => {
@@ -302,9 +305,7 @@ export default function IdeaDetailsPage() {
         setComments(data.comments || []);
         setReviews(data.reviews || []);
         setSummary(data.summary?.summary || null);
-        if (data.idea) {
-          setManagerCommentInput(data.idea.managerComment || '');
-        }
+
       } else {
         // Fallback: Check localStorage for locally saved submission
         if (typeof window !== 'undefined') {
@@ -317,7 +318,6 @@ export default function IdeaDetailsPage() {
               setComments(found.comments || []);
               setReviews(found.reviews || found.evaluationResults || []);
               setSummary(found.executiveSummary || null);
-              setManagerCommentInput(found.managerComment || '');
               return;
             }
           } catch (e) {
@@ -483,7 +483,7 @@ export default function IdeaDetailsPage() {
           'Content-Type': 'application/json',
           'x-user-id': currentUser.id,
         },
-        body: JSON.stringify({ status: newStatus, managerComment: managerCommentInput }),
+        body: JSON.stringify({ status: newStatus }),
       });
 
       if (res.ok) {
@@ -496,84 +496,6 @@ export default function IdeaDetailsPage() {
     }
   };
 
-  const handleMarkAsImplemented = async () => {
-    if (!idea || !currentUser) return;
-    if (!systemOwnerInput.trim()) {
-      setImplementationError('System owner is required');
-      return;
-    }
-    if (!slackChannelInput.trim()) {
-      setImplementationError('Slack channel is required');
-      return;
-    }
-    if (!implementedAtInput) {
-      setImplementationError('Implementation date is required');
-      return;
-    }
-    const slackChannelFormatted = slackChannelInput.trim();
-    if (!/^#?[a-zA-Z0-9_-]+$/.test(slackChannelFormatted)) {
-      setImplementationError('Slack channel must be a valid channel name (e.g. #my-channel)');
-      return;
-    }
-
-    try {
-      setUpdatingStatus(true);
-      setImplementationError(null);
-      const res = await fetch(`/api/ideas/${idea.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUser.id,
-        },
-        body: JSON.stringify({
-          status: 'implemented',
-          systemOwner: systemOwnerInput.trim(),
-          backupSystemOwner: backupSystemOwnerInput.trim() || undefined,
-          slackChannel: slackChannelFormatted,
-          implementedAt: implementedAtInput,
-          managerComment: managerCommentInput,
-        }),
-      });
-
-      if (res.ok) {
-        setShowImplementationModal(false);
-        showToast('Idea successfully marked as Implemented!');
-        await fetchIdeaDetails();
-      } else {
-        const data = await res.json();
-        setImplementationError(data.error || 'Failed to update status');
-      }
-    } catch (err) {
-      console.error('Error marking as implemented:', err);
-      setImplementationError('Network error or server down');
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
-
-  const handleSaveManagerComment = async () => {
-    if (!idea || !currentUser) return;
-    try {
-      setSavingComment(true);
-      const res = await fetch(`/api/ideas/${idea.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUser.id,
-        },
-        body: JSON.stringify({ status: idea.status, managerComment: managerCommentInput }),
-      });
-
-      if (res.ok) {
-        showToast('Manager comments saved successfully!');
-        await fetchIdeaDetails();
-      }
-    } catch (err) {
-      console.error('Error saving manager comment:', err);
-    } finally {
-      setSavingComment(false);
-    }
-  };
 
   // Syndication Actions
   const handleSyncClickUp = async () => {
@@ -1677,6 +1599,7 @@ export default function IdeaDetailsPage() {
                         setSlackChannelInput('');
                         setImplementedAtInput(new Date().toISOString().split('T')[0]);
                         setImplementationError(null);
+                        setAppDescriptionInput('');
                         setShowImplementationModal(true);
                       }}
                       disabled={updatingStatus}
@@ -1686,6 +1609,41 @@ export default function IdeaDetailsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                       </svg>
                       Mark as Implemented
+                    </button>
+                  )}
+
+                  {/* Admin-only: Revert from Implemented back to Innovation Hub */}
+                  {idea.status === 'implemented' && currentUser?.role === 'admin' && (
+                    <button
+                      onClick={async () => {
+                        if (!currentUser || !idea) return;
+                        if (!confirm('Revert this implemented app back to the Innovation Hub as "approved"? This action is admin-only.')) return;
+                        setRevertingFromImplemented(true);
+                        try {
+                          const res = await fetch(`/api/ideas/${idea.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+                            body: JSON.stringify({ status: 'approved' }),
+                          });
+                          if (res.ok) {
+                            showToast('App reverted to Innovation Hub (approved status).');
+                            await fetchIdeaDetails();
+                          } else {
+                            const data = await res.json();
+                            alert(data.error || 'Failed to revert');
+                          }
+                        } catch (e) { console.error(e); }
+                        finally { setRevertingFromImplemented(false); }
+                      }}
+                      disabled={revertingFromImplemented}
+                      className="w-full font-bold text-xs px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white shadow-md border border-orange-400/30"
+                    >
+                      {revertingFromImplemented ? (
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                      )}
+                      Revert to Innovation Hub
                     </button>
                   )}
                 </div>
@@ -1702,41 +1660,81 @@ export default function IdeaDetailsPage() {
                   Manager Comments
                 </h3>
 
-                {(currentUser?.role === 'manager' || currentUser?.role === 'admin') ? (
-                  <div className="space-y-3">
+                {/* Show existing manager comment thread */}
+                {(() => {
+                  const allComments: Array<{id: string; comment: string; authorName: string; createdAt: string}> = [];
+                  // Legacy single comment
+                  if (idea.managerComment) {
+                    allComments.push({
+                      id: 'legacy',
+                      comment: idea.managerComment,
+                      authorName: 'Manager',
+                      createdAt: idea.createdAt,
+                    });
+                  }
+                  // New thread comments
+                  if (idea.managerComments && idea.managerComments.length > 0) {
+                    idea.managerComments.forEach(mc => allComments.push({ id: mc.id, comment: mc.comment, authorName: mc.authorName, createdAt: mc.createdAt }));
+                  }
+                  return allComments.length > 0 ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {allComments.map((mc) => (
+                        <div key={mc.id} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-semibold">
+                            <span className="text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                              {mc.authorName}
+                            </span>
+                            <span className="text-slate-400">{new Date(mc.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{mc.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic text-center py-2">No manager comments yet.</p>
+                  );
+                })()}
+
+                {/* Post new comment - manager/admin only */}
+                {(currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                     <textarea
-                      value={managerCommentInput}
-                      onChange={(e) => setManagerCommentInput(e.target.value)}
-                      placeholder="Add a comment on why this idea got approved, rejected, or returned to under review..."
+                      value={newManagerCommentText}
+                      onChange={(e) => setNewManagerCommentText(e.target.value)}
+                      placeholder="Post a manager comment (cannot be edited or deleted)..."
                       maxLength={2000}
-                      className="w-full h-32 px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                      className="w-full h-24 px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-semibold">
-                        {managerCommentInput.length}/2000 characters
-                      </span>
+                      <span className="text-[10px] text-slate-400 font-semibold">{newManagerCommentText.length}/2000</span>
                       <button
-                        onClick={handleSaveManagerComment}
-                        disabled={savingComment || updatingStatus}
-                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-600/50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                        onClick={async () => {
+                          if (!newManagerCommentText.trim() || !currentUser || !idea) return;
+                          setPostingManagerComment(true);
+                          try {
+                            const res = await fetch(`/api/ideas/${idea.id}/manager-comments`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+                              body: JSON.stringify({ text: newManagerCommentText.trim() }),
+                            });
+                            if (res.ok) {
+                              setNewManagerCommentText('');
+                              await fetchIdeaDetails();
+                            }
+                          } catch (e) { console.error(e); }
+                          finally { setPostingManagerComment(false); }
+                        }}
+                        disabled={postingManagerComment || !newManagerCommentText.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
                       >
-                        {savingComment ? (
-                          <>
-                            <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                            </svg>
-                            Saving...
-                          </>
+                        {postingManagerComment ? (
+                          <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Posting...</>
                         ) : (
-                          'Save Comment'
+                          <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>Post Comment</>
                         )}
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-850 text-slate-700 dark:text-slate-300 text-xs italic leading-relaxed">
-                    &ldquo;{idea.managerComment}&rdquo;
                   </div>
                 )}
               </div>
@@ -1970,6 +1968,47 @@ export default function IdeaDetailsPage() {
               </div>
             </div>
 
+            {/* App Description Field with AI Generate */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  App Description <span className="text-slate-400 font-medium normal-case">(shown in Active Apps)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!idea) return;
+                    setIsGeneratingAppDesc(true);
+                    try {
+                      const res = await fetch(`/api/ideas/${idea.id}/app-description`, { method: 'POST' });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setAppDescriptionInput(data.description || '');
+                      }
+                    } catch (e) { console.error(e); }
+                    finally { setIsGeneratingAppDesc(false); }
+                  }}
+                  disabled={isGeneratingAppDesc}
+                  className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-lg hover:bg-indigo-100 transition-all disabled:opacity-60"
+                >
+                  {isGeneratingAppDesc ? (
+                    <><svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating...</>
+                  ) : (
+                    <><svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>✨ AI Fill</>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={appDescriptionInput}
+                onChange={(e) => setAppDescriptionInput(e.target.value)}
+                placeholder="Brief description of the live app that will appear in the Active Apps directory..."
+                maxLength={500}
+                rows={3}
+                className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all resize-none"
+              />
+              <p className="text-[10px] text-slate-400">{appDescriptionInput.length}/500 chars</p>
+            </div>
+
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
               <button
                 type="button"
@@ -1981,7 +2020,49 @@ export default function IdeaDetailsPage() {
               </button>
               <button
                 type="button"
-                onClick={handleMarkAsImplemented}
+                onClick={async () => {
+                  if (!idea || !currentUser) return;
+                  if (!systemOwnerInput.trim()) { setImplementationError('System owner is required'); return; }
+                  if (!slackChannelInput.trim()) { setImplementationError('Slack channel is required'); return; }
+                  if (!implementedAtInput) { setImplementationError('Implementation date is required'); return; }
+                  const slackChannelFormatted = slackChannelInput.trim();
+                  if (!/^#?[a-zA-Z0-9_-]+$/.test(slackChannelFormatted)) {
+                    setImplementationError('Slack channel must be a valid channel name (e.g. #my-channel)');
+                    return;
+                  }
+                  try {
+                    const updatingStatus_local = true;
+                    void updatingStatus_local;
+                    setUpdatingStatus(true);
+                    setImplementationError(null);
+                    const res = await fetch(`/api/ideas/${idea.id}/status`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+                      body: JSON.stringify({
+                        status: 'implemented',
+                        systemOwner: systemOwnerInput.trim(),
+                        backupSystemOwner: backupSystemOwnerInput.trim() || undefined,
+                        slackChannel: slackChannelFormatted,
+                        implementedAt: implementedAtInput,
+                        appDescription: appDescriptionInput.trim() || undefined,
+                      }),
+                    });
+                    if (res.ok) {
+                      setShowImplementationModal(false);
+                      setAppDescriptionInput('');
+                      showToast('Idea successfully marked as Implemented!');
+                      await fetchIdeaDetails();
+                    } else {
+                      const data = await res.json();
+                      setImplementationError(data.error || 'Failed to update status');
+                    }
+                  } catch (err) {
+                    console.error('Error marking as implemented:', err);
+                    setImplementationError('Network error or server down');
+                  } finally {
+                    setUpdatingStatus(false);
+                  }
+                }}
                 disabled={updatingStatus}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5"
               >

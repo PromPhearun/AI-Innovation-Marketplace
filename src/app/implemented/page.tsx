@@ -271,6 +271,11 @@ export default function ActiveAppsPage() {
                   >
                     {app.title}
                   </h3>
+                  {app.appDescription && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1 line-clamp-2">
+                      {app.appDescription}
+                    </p>
+                  )}
                   <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 line-clamp-2 leading-relaxed">
                     {app.description}
                   </p>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-unused-vars */
-import { User, Idea, AIReview, Vote, Comment, Summary, PRD, Roadmap, ClickUpSync } from '@/types';
+import { User, Idea, AIReview, Vote, Comment, Summary, PRD, Roadmap, ClickUpSync, ManagerComment } from '@/types';
 
 // Let's create an in-memory database for server-side fallback
 // and sync with localstorage on client-side.
@@ -429,7 +429,8 @@ class MockDB {
     systemOwner?: string,
     backupSystemOwner?: string,
     slackChannel?: string,
-    implementedAt?: string
+    implementedAt?: string,
+    appDescription?: string
   ): Idea | undefined {
     this.loadFromStorage();
     const idea = this.ideas.find(i => i.id === id);
@@ -442,6 +443,20 @@ class MockDB {
       if (backupSystemOwner !== undefined) idea.backupSystemOwner = backupSystemOwner;
       if (slackChannel !== undefined) idea.slackChannel = slackChannel;
       if (implementedAt !== undefined) idea.implementedAt = implementedAt;
+      if (appDescription !== undefined) idea.appDescription = appDescription;
+      this.saveToStorage();
+    }
+    return idea;
+  }
+
+  addManagerComment(ideaId: string, comment: ManagerComment): Idea | undefined {
+    this.loadFromStorage();
+    const idea = this.ideas.find(i => i.id === ideaId);
+    if (idea) {
+      if (!idea.managerComments) {
+        idea.managerComments = [];
+      }
+      idea.managerComments.push(comment);
       this.saveToStorage();
     }
     return idea;
@@ -553,6 +568,23 @@ class MockDB {
     this.clickups = this.clickups.filter(c => c.ideaId !== clickup.ideaId);
     this.clickups.push(clickup);
     this.saveToStorage();
+  }
+
+  deleteIdea(id: string): boolean {
+    this.loadFromStorage();
+    const index = this.ideas.findIndex(i => i.id === id);
+    if (index === -1) return false;
+    this.ideas.splice(index, 1);
+    // Cascade-delete all related data
+    this.reviews = this.reviews.filter(r => r.ideaId !== id);
+    this.votes = this.votes.filter(v => v.ideaId !== id);
+    this.comments = this.comments.filter(c => c.ideaId !== id);
+    this.summaries = this.summaries.filter(s => s.ideaId !== id);
+    this.prds = this.prds.filter(p => p.ideaId !== id);
+    this.roadmaps = this.roadmaps.filter(r => r.ideaId !== id);
+    this.clickups = this.clickups.filter(c => c.ideaId !== id);
+    this.saveToStorage();
+    return true;
   }
 }
 

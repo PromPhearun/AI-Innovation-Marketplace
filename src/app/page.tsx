@@ -13,6 +13,10 @@ export default function DashboardPage() {
   const [allVotes, setAllVotes] = useState<{ [ideaId: string]: Vote[] }>({});
   const [loading, setLoading] = useState(true);
 
+  // Delete confirmation state
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
@@ -22,6 +26,47 @@ export default function DashboardPage() {
   const [selectedScore, setSelectedScore] = useState('All');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'mine'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'recent_activity' | 'highest_score' | 'highest_rated' | 'most_active'>('newest');
+
+  const handleDeleteIdea = async (ideaId: string) => {
+    if (!currentUser || currentUser.role !== 'admin') return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-id': currentUser.id,
+        },
+      });
+
+      if (res.ok || res.status === 204) {
+        // Remove from local state immediately (optimistic UI)
+        setIdeas((prev) => prev.filter((i) => i.id !== ideaId));
+        setAllVotes((prev) => {
+          const updated = { ...prev };
+          delete updated[ideaId];
+          return updated;
+        });
+
+        // Also remove from localStorage if it was a local idea
+        if (typeof window !== 'undefined') {
+          try {
+            const localIdeas = JSON.parse(localStorage.getItem('local_submitted_ideas') || '[]');
+            const filtered = localIdeas.filter((i: { id: string }) => i.id !== ideaId);
+            localStorage.setItem('local_submitted_ideas', JSON.stringify(filtered));
+          } catch (e) {
+            console.error('Error cleaning up local ideas after delete:', e);
+          }
+        }
+      } else {
+        console.error('Failed to delete idea, status:', res.status);
+      }
+    } catch (err) {
+      console.error('Error deleting idea:', err);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmId(null);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -688,17 +733,75 @@ export default function DashboardPage() {
                             {ideaDepartmentFormatted(idea.department)}
                           </span>
                         </div>
-                        {/* Innovation Score Badge */}
-                        <div
-                          className={`flex items-center gap-1 text-[11px] font-bold border rounded-md px-2 py-0.5 ${getScoreColor(
-                            idea.innovationScore
-                          )}`}
-                          title="Multi-agent aggregate score"
-                        >
-                          <span>Score:</span>
-                          <span className="text-xs font-extrabold">{idea.innovationScore}</span>
+                        {/* Right side of top row: Score badge + Admin delete */}
+                        <div className="flex items-center gap-2">
+                          {/* Innovation Score Badge */}
+                          <div
+                            className={`flex items-center gap-1 text-[11px] font-bold border rounded-md px-2 py-0.5 ${getScoreColor(idea.innovationScore)}`}
+                            title="Multi-agent aggregate score"
+                          >
+                            <span>Score:</span>
+                            <span className="text-xs font-extrabold">{idea.innovationScore}</span>
+                          </div>
+
+                          {/* Admin Delete Button */}
+                          {currentUser?.role === 'admin' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteConfirmId(idea.id);
+                              }}
+                              title="Delete idea"
+                              className="p-1.5 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all duration-200 opacity-0 group-hover:opacity-100"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
+
+                      {/* Inline Delete Confirmation */}
+                      {deleteConfirmId === idea.id && (
+                        <div
+                          className="mb-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 flex items-center justify-between gap-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <p className="text-xs font-semibold text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                            </svg>
+                            Delete this idea permanently?
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              disabled={deleting}
+                              className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleDeleteIdea(idea.id)}
+                              disabled={deleting}
+                              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white border border-rose-700 transition-all disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {deleting ? (
+                                <>
+                                  <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                  Deleting…
+                                </>
+                              ) : (
+                                'Delete'
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Title & Desc */}
                       <h3
