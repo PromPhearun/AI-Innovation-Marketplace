@@ -1341,6 +1341,9 @@ You MUST format your output as a series of instructions containing the file cont
 
 Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
 
+        // Temporarily log out the builderPrompt into a file to see exactly what we're sending
+        await writeWorkspaceFile(ideaId, 'debug_payload.txt', builderPrompt);
+
         const builderResponse = await openai.chat.completions.create({
           model: MODEL_NAME,
           messages: [
