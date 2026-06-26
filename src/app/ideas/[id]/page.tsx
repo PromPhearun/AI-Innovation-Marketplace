@@ -892,7 +892,7 @@ export default function IdeaDetailsPage() {
         <div className="tabs-bar flex items-center border-b border-slate-200 dark:border-slate-800 gap-1 overflow-x-auto pb-px">
           <button
             onClick={() => setActiveTab('evaluation')}
-            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'evaluation'
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -905,7 +905,7 @@ export default function IdeaDetailsPage() {
           </button>
           <button
             onClick={() => setActiveTab('prd')}
-            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'prd'
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -918,7 +918,7 @@ export default function IdeaDetailsPage() {
           </button>
           <button
             onClick={() => setActiveTab('roadmap')}
-            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'roadmap'
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -931,7 +931,7 @@ export default function IdeaDetailsPage() {
           </button>
           <button
             onClick={() => setActiveTab('syndication')}
-            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'syndication'
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -945,7 +945,7 @@ export default function IdeaDetailsPage() {
 
           <button
             onClick={() => setActiveTab('agentLoop')}
-            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4.5 border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1.5 font-bold text-xs py-3 px-4 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'agentLoop'
                 ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                 : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
@@ -1222,7 +1222,7 @@ export default function IdeaDetailsPage() {
                             <div className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 mb-1">
                               {phase.weeks}
                             </div>
-                            <div className="h-4.5 rounded-lg bg-indigo-600/15 group-hover:bg-indigo-600/25 border border-indigo-500/20 text-[9px] font-black text-indigo-700 dark:text-indigo-300 flex items-center justify-center transition-all px-1 truncate">
+                            <div className="h-5 rounded-lg bg-indigo-600/15 group-hover:bg-indigo-600/25 border border-indigo-500/20 text-[9px] font-black text-indigo-700 dark:text-indigo-300 flex items-center justify-center transition-all px-1 truncate">
                               P{phase.phaseNumber}: {phase.title.substring(0, 18)}...
                             </div>
                           </div>
@@ -1231,11 +1231,11 @@ export default function IdeaDetailsPage() {
                     </div>
 
                     {/* Detailed Vertical Phase List */}
-                    <div className="space-y-6 relative border-l-2 border-indigo-100 dark:border-indigo-900/50 pl-5.5 ml-2">
+                    <div className="space-y-6 relative border-l-2 border-indigo-100 dark:border-indigo-900/50 pl-8 ml-3">
                       {roadmap.phases.map((phase) => (
                         <div key={phase.phaseNumber} className="relative bg-white dark:bg-slate-950 border border-slate-200/85 dark:border-slate-800/80 rounded-xl p-5 shadow-sm group hover:shadow-md transition-all">
                           {/* Circle Badge Dot on Timeline */}
-                          <div className="absolute -left-10 top-5 bg-indigo-600 text-white text-[10px] font-black w-6.5 h-6.5 rounded-full border-4 border-slate-50 dark:border-slate-950 flex items-center justify-center">
+                          <div className="absolute -left-12 top-5 bg-indigo-600 text-white text-[10px] font-black w-8 h-8 rounded-full border-4 border-white dark:border-slate-950 flex items-center justify-center">
                             {phase.phaseNumber}
                           </div>
 
@@ -1374,7 +1374,7 @@ export default function IdeaDetailsPage() {
 
                   {clickup ? (
                     <div className="space-y-4 animate-fade-in">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/40 p-4.5 rounded-xl border border-slate-200 dark:border-slate-850">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-850">
                         <div className="space-y-0.5">
                           <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">ClickUp Epic Key</span>
                           <div className="flex items-center gap-1.5">
@@ -1664,7 +1664,7 @@ export default function IdeaDetailsPage() {
 
       {/* SLACK MODAL SIMULATION VIEWPORT */}
       {showSlackModal && slackResult && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4.5 no-print animate-fade-in">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 no-print animate-fade-in">
           <div className="bg-slate-900 w-full max-w-2xl rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex flex-col h-[520px]">
             {/* Window Header */}
             <div className="bg-[#121016] border-b border-slate-800 px-4 py-3 flex items-center justify-between">
@@ -1736,7 +1736,7 @@ export default function IdeaDetailsPage() {
                       </div>
 
                       {/* Render simulated slack blocks */}
-                      <div className="border-l-4 border-[#e01e5a] bg-slate-50 p-4.5 rounded-r-xl border border-slate-100 space-y-2.5 max-w-lg shadow-sm">
+                      <div className="border-l-4 border-[#e01e5a] bg-slate-50 p-4 rounded-r-xl border border-slate-100 space-y-2.5 max-w-lg shadow-sm">
                         <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                           🚀 New Innovation Spotlight Broadcast
                         </h4>
@@ -1782,7 +1782,7 @@ export default function IdeaDetailsPage() {
                   </button>
                   <button
                     onClick={triggerSlackBroadcastFinal}
-                    className="bg-[#36c5f0] hover:bg-[#1bb8ea] text-white font-extrabold text-xs px-4.5 py-2.5 rounded-xl transition-all shadow-sm"
+                    className="bg-[#36c5f0] hover:bg-[#1bb8ea] text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-sm"
                   >
                     Confirm & Publish Announcement
                   </button>
