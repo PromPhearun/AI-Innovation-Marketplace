@@ -13,10 +13,23 @@ export const openai = new OpenAI({
   fetch: async (url, init) => {
     // Next.js fetch polyfill might drop User-Agent, so we enforce it
     const newInit = init || {};
-    newInit.headers = {
-      ...newInit.headers,
-      'User-Agent': 'Deriv-Agent-Loop/1.0',
-    };
+    const newHeaders: Record<string, string> = {};
+    if (newInit.headers) {
+      if (newInit.headers instanceof Headers) {
+        newInit.headers.forEach((value, key) => {
+          newHeaders[key] = value;
+        });
+      } else if (Array.isArray(newInit.headers)) {
+        newInit.headers.forEach(([key, value]) => {
+          newHeaders[key] = value;
+        });
+      } else {
+        Object.assign(newHeaders, newInit.headers);
+      }
+    }
+    // Force User-Agent to bypass Cloudflare WAF block
+    newHeaders['User-Agent'] = 'Deriv-Agent-Loop/1.0';
+    newInit.headers = newHeaders;
     return fetch(url, newInit);
   }
 });
