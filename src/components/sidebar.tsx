@@ -55,7 +55,7 @@ export function Sidebar() {
       ]
     },
     {
-      title: 'Implemented Hub',
+      title: 'Productions Hub',
       items: [
         {
           name: 'Active Apps',
@@ -131,7 +131,7 @@ export function Sidebar() {
             <div key={section.title} className="space-y-1.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-3 flex items-center justify-between">
                 <span>{section.title}</span>
-                {section.title === 'Implemented Hub' && (
+                {section.title === 'Productions Hub' && (
                   <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 text-[8px] rounded-full font-bold border border-emerald-500/20">
                     LIVE
                   </span>
@@ -145,7 +145,7 @@ export function Sidebar() {
               <div className="space-y-1">
                 {section.items.map((item) => {
                   const active = pathname === item.href;
-                  const isImplementedItem = section.title === 'Implemented Hub';
+                  const isImplementedItem = section.title === 'Productions Hub';
                   const isFutureItem = section.title === 'Future Development';
                   return (
                     <button

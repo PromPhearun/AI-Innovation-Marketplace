@@ -264,7 +264,7 @@ export default function IdeaDetailsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [hoveredStar, setHoveredStar] = useState<number | null>(null);
-  // Implemented Hub Transition States
+  // Productions Hub Transition States
   const [showImplementationModal, setShowImplementationModal] = useState(false);
   const [systemOwnerInput, setSystemOwnerInput] = useState('');
   const [backupSystemOwnerInput, setBackupSystemOwnerInput] = useState('');
@@ -1896,7 +1896,7 @@ export default function IdeaDetailsPage() {
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Move this approved idea into the <strong>Implemented Hub</strong> directory. This ensures the app is fully operational and registers vital system contacts and communication channels.
+              Move this approved idea into the <strong>Productions Hub</strong> directory. This ensures the app is fully operational and registers vital system contacts and communication channels.
             </p>
 
             {implementationError && (

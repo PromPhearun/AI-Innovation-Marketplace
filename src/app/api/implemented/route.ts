@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       app: newApp,
-      message: 'App successfully registered in the Implemented Hub.',
+      message: 'App successfully registered in the Productions Hub.',
     });
   } catch (error) {
     console.error('API Error in POST /api/implemented:', error);

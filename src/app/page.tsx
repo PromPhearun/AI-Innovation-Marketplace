@@ -314,9 +314,9 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Innovation Portfolio</h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-1.5 text-sm">
-              Discover, evaluate, and validate high-impact ideas powered by AI-driven multi-agent analysis.
-            </p>
+        <p className="text-slate-600 dark:text-slate-400 mt-1.5 text-sm">
+          Discover vetted initiatives, multi-agent AI appraisals, and transition approved projects into the Productions Hub.
+        </p>
           </div>
           <button
             onClick={() => router.push('/ideas/submit')}

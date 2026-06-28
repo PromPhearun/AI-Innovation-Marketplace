@@ -101,7 +101,7 @@ export default function RegisterImplementedPage() {
             Register Built App
           </h1>
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm">
-            Manually key in an existing operational system/app that has already been built and deployed. This registers it directly into the Implemented Hub (Project Directory).
+            Manually key in an existing operational system/app that has already been built and deployed. This registers it directly into the Productions Hub (Project Directory).
           </p>
         </div>
 

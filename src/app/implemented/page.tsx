@@ -117,7 +117,7 @@ export default function ActiveAppsPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Implemented Hub</h1>
+              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Productions Hub</h1>
               <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2.5 py-1 text-xs rounded-full font-bold border border-emerald-500/20 shadow-sm uppercase">
                 Active Production Systems
               </span>
