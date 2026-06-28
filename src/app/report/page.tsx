@@ -798,8 +798,8 @@ export default function ReportPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                   {/* Circle SVG */}
-                  <div className="md:col-span-5 flex justify-center relative">
-                    <svg width="150" height="150" viewBox="0 0 100 100" className="overflow-visible">
+                  <div className="md:col-span-5 flex justify-center relative py-4">
+                    <svg width="220" height="220" viewBox="0 0 100 100" className="overflow-visible">
                       {departmentData.length === 0 ? (
                         <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" strokeWidth="12" />
                       ) : (
@@ -849,21 +849,11 @@ export default function ReportPage() {
                   </div>
 
                   {/* Legends side card */}
-                  <div className="md:col-span-7 space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                  <div className="md:col-span-7 space-y-2 max-h-[280px] overflow-y-auto pr-1">
                     {departmentData.map((dept) => (
                       <div
                         key={dept.name}
-                        className="flex items-center justify-between text-xs p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 transition-all duration-150 cursor-pointer"
-                        onMouseEnter={(e) => {
-                          setActiveTooltip({
-                            chartId: 'team',
-                            label: dept.name,
-                            value: `${dept.count} ideas (${dept.percentage}%)`,
-                            x: e.clientX,
-                            y: e.clientY,
-                          });
-                        }}
-                        onMouseLeave={() => setActiveTooltip(null)}
+                        className="flex items-center justify-between text-xs p-1.5 rounded-lg"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dept.color }} />
