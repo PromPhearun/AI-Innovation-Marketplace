@@ -1123,13 +1123,6 @@ export default function DerivBrainPage() {
       <div className="max-w-6xl mx-auto animate-fade-in space-y-8">
         {/* Page header */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mb-3">
-            <span>Future Development</span>
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            <span className="text-violet-600 dark:text-violet-400 font-semibold">Integrate Deriv Brain</span>
-          </div>
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl shadow-lg shadow-violet-500/30">
               <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
