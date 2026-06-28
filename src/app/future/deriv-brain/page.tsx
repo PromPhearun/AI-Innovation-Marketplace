@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { LayoutWrapper } from '@/components/layout-wrapper';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1118,8 +1119,8 @@ export default function DerivBrainPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
-      <div className="max-w-6xl mx-auto px-6 py-8">
+    <LayoutWrapper>
+      <div className="max-w-6xl mx-auto animate-fade-in space-y-8">
         {/* Page header */}
         <div className="mb-8">
           <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 mb-3">
@@ -1175,6 +1176,6 @@ export default function DerivBrainPage() {
           {activeTab === 'config' && <ConfigurationTab />}
         </div>
       </div>
-    </div>
+    </LayoutWrapper>
   );
 }
