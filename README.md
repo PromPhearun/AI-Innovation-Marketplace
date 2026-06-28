@@ -2,7 +2,7 @@
 
 An AI-powered, multi-agent platform designed to capture, evaluate, and prioritize employee innovation ideas into structured, data-driven business initiatives across all **Deriv** offices.
 
-Unlike knowledge retrieval bots (e.g., Deriv Brain), the **AI Innovation Marketplace** focuses on decision-making support, multi-agent evaluation councils, duplicate detection, and project prioritization.
+The **AI Innovation Marketplace** focuses on decision-making support, multi-agent evaluation councils, duplicate detection, and project prioritization.
 
 ---
 
