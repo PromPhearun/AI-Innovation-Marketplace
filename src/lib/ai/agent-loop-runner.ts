@@ -698,11 +698,19 @@ export async function runAgentLoop(
     throw new Error('Invalid ID');
   }
 
-  // Stop any running loop first
-  stopAgentLoop(ideaId);
-  
-  // Reset Abort Controller
+  // Reset Abort Controller to ensure clean start (do NOT call stopAgentLoop
+  // here as it would fire-and-forget a "stopped" status to Firestore, causing
+  // a race condition that pollutes the persisted state with the kill-switch message)
   abortControllers[ideaId] = false;
+
+  // Remove any stale kill.lock from previous runs
+  const workspacePath = getWorkspacePath(ideaId);
+  const killLockPath = path.join(workspacePath, 'kill.lock');
+  if (fs.existsSync(killLockPath)) {
+    try {
+      fs.unlinkSync(killLockPath);
+    } catch {}
+  }
 
   const existing = await getAgentLoopStatus(ideaId);
   let iteration = 0;
@@ -712,7 +720,11 @@ export async function runAgentLoop(
   if (existing && resume) {
     iteration = existing.iteration;
     maxIterations = iteration + 5;
-    logs = [...existing.logs];
+    // Filter out stale kill-switch entries that may have been persisted in
+    // Firestore by a previous fire-and-forget save from stopAgentLoop
+    logs = (existing.logs || []).filter(
+      log => !log.includes('User Triggered Kill Switch')
+    );
   }
 
   const status: LoopStatus = {
@@ -727,14 +739,15 @@ export async function runAgentLoop(
     consensusReached: existing && resume ? existing.consensusReached : false
   };
 
+  // Write the "running" status to memory/Firestore FIRST before any appendLog
+  // calls that do fire-and-forget saves, to prevent race conditions
+  await saveAgentLoopStatus(ideaId, status);
+
   if (existing && resume) {
     appendLog(ideaId, `🔄 Resuming Agent Loop. Extending execution by 5 cycles (New Max Cycles: ${maxIterations}).`);
   } else {
     appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
   }
-
-  // Also write memory/Firestore status early
-  await saveAgentLoopStatus(ideaId, status);
 
   // Generate .clinerules if consensus was already reached previously
   const isAlreadyApproved = (await readWorkspaceFile(ideaId, 'prompthistory.md')).includes('STATUS: APPROVED');
@@ -759,15 +772,6 @@ Your task is to automatically build out the complete codebase inside this worksp
         appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
       } catch {}
     }
-  }
-
-  // Ensure we delete any existing kill-switch lock on fresh loop start
-  const workspacePath = getWorkspacePath(ideaId);
-  const killLockPath = path.join(workspacePath, 'kill.lock');
-  if (fs.existsSync(killLockPath)) {
-    try {
-      fs.unlinkSync(killLockPath);
-    } catch {}
   }
 
   // Generate .vscode/tasks.json for seamless hands-free launch in VS Code/Cursor
