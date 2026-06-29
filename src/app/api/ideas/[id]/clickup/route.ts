@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ideasService } from '@/services/ideas.service';
-import { ClickUpTask, ClickUpSync, Comment } from '@/types';
+import { ClickUpTask, ClickUpSync } from '@/types';
 
 export async function GET(
   request: Request,
@@ -103,18 +103,6 @@ export async function POST(
     };
 
     await ideasService.saveClickUpSync(id, clickupData);
-
-    // Create automatic comment remark on the idea card
-    const remarkId = `comment_clickup_${Date.now()}`;
-    const remark: Comment = {
-      id: remarkId,
-      ideaId: id,
-      userId: 'clickup_bot',
-      userName: 'ClickUp Integration',
-      comment: `ClickUp task successfully created! Ticket Key: ${clickupData.ticketKey}. View task: ${clickupData.ticketUrl}`,
-      createdAt: new Date().toISOString(),
-    };
-    await ideasService.addComment(remark);
 
     return NextResponse.json(clickupData);
   } catch (error) {

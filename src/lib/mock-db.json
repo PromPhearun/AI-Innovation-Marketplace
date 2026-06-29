@@ -405,22 +405,6 @@
       "userId": "user_3",
       "comment": "Good idea",
       "createdAt": "2026-06-16T05:54:10.731Z"
-    },
-    {
-      "id": "comment_clickup_1781917589830",
-      "ideaId": "idea_1",
-      "userId": "clickup_bot",
-      "userName": "ClickUp Integration",
-      "comment": "ClickUp task successfully created! Ticket Key: CU-8673. View task: https://app.clickup.com/9003102/v/t/idea_1",
-      "createdAt": "2026-06-20T01:06:29.830Z"
-    },
-    {
-      "id": "comment_clickup_1782014258911",
-      "ideaId": "idea_1782010210697",
-      "userId": "clickup_bot",
-      "userName": "ClickUp Integration",
-      "comment": "ClickUp task successfully created! Ticket Key: CU-5844. View task: https://app.clickup.com/9003102/v/t/idea_1782010210697",
-      "createdAt": "2026-06-21T03:57:38.911Z"
     }
   ],
   "summaries": [
