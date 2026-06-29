@@ -63,6 +63,44 @@ export default function AgentLoopPanel({
     };
   }, [pollingActive]);
 
+  // Auto-trigger next iteration when running and more iterations remain
+  useEffect(() => {
+    if (!status || status.status !== 'running') return;
+    if (status.iteration >= status.maxIterations) {
+      setPollingActive(false);
+      return;
+    }
+    if (pollingActive && !isActionLoading) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsActionLoading(true);
+          const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'iterate' }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setStatus(data.status);
+            if (data.status.status === 'running' && data.status.iteration < data.status.maxIterations) {
+              // Keep polling - next iteration will auto-fire
+            } else {
+              setPollingActive(false);
+            }
+          } else {
+            setPollingActive(false);
+          }
+        } catch (err) {
+          console.error('Auto-iteration failed:', err);
+          setPollingActive(false);
+        } finally {
+          setIsActionLoading(false);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [status?.iteration, pollingActive, isActionLoading, ideaId]);
+
   // Auto-scroll logs terminal
   useEffect(() => {
     if (terminalContainerRef.current) {
@@ -112,15 +150,20 @@ export default function AgentLoopPanel({
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status);
-        setPollingActive(true);
+        if (data.status.status === 'running' && data.status.iteration < data.status.maxIterations) {
+          setPollingActive(true);
+        } else {
+          setPollingActive(false);
+        }
         const isCloudEnv = typeof window !== 'undefined' && 
           window.location.hostname !== 'localhost' && 
           window.location.hostname !== '127.0.0.1';
-        if (isCloudEnv && !isRunBefore) {
+        if (isCloudEnv && !isRunBefore && data.status.status === 'completed') {
           setShowIdeGuideModal(true);
         }
       } else {
-        alert('Failed to start agent loop. Check server logs.');
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Failed to start agent loop. Check server logs.');
       }
     } catch (err) {
       console.error(err);
@@ -339,7 +382,7 @@ export default function AgentLoopPanel({
     }
   };
 
-  const isRunBefore = status && (status.status === 'completed' || status.status === 'stopped' || status.status === 'failed' || status.iteration > 0);
+  const isRunBefore = status && (status.status === 'completed' || status.status === 'stopped' || (status.iteration > 0 && status.status !== 'failed'));
   const buttonText = isRunBefore 
     ? 'Run Spec Engine for 5 More Cycles' 
     : 'Launch Spec Engine & Open IDE';

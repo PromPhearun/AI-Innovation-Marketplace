@@ -3,6 +3,7 @@ import { ideasService } from '@/services/ideas.service';
 import {
   getAgentLoopStatus,
   runAgentLoop,
+  runAgentLoopIteration,
   stopAgentLoop,
   validateId,
   launchIDE,
@@ -70,6 +71,10 @@ export async function POST(
       await runAgentLoop(id, idea.title, idea.description, ide, resume);
       const status = await getAgentLoopStatus(id);
       return NextResponse.json({ message: 'Agent Loop started', status });
+    } else if (action === 'iterate') {
+      // Execute one iteration synchronously (Vercel serverless-friendly)
+      const status = await runAgentLoopIteration(id);
+      return NextResponse.json({ message: 'Iteration executed', status });
     } else if (action === 'stop') {
       stopAgentLoop(id);
       const status = await getAgentLoopStatus(id);

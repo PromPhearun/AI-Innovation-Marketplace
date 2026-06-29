@@ -692,6 +692,281 @@ Otherwise, list the remaining issues, missing features, or bugs that the AI Deve
   }
 }
 
+/**
+ * Execute exactly one iteration of the spec engine (Builder + Critic cycle).
+ * Vercel/serverless-friendly: one iteration per HTTP request.
+ * Saves status and returns updated status.
+ */
+export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus> {
+  if (!validateId(ideaId)) throw new Error('Invalid Idea ID format');
+
+  const status = await getAgentLoopStatus(ideaId);
+  if (!status || status.status !== 'running') {
+    return status;
+  }
+
+  // Check abort
+  if (abortControllers[ideaId]) {
+    appendLog(ideaId, '🛑 Agent Loop execution stopped by user.');
+    status.status = 'stopped';
+    await saveAgentLoopStatus(ideaId, status);
+    return status;
+  }
+
+  // If consensus already reached, run one developer iteration
+  if (status.consensusReached) {
+    await executeDeveloperLoopIteration(ideaId, status);
+    return await getAgentLoopStatus(ideaId);
+  }
+
+  // Check if max iterations reached
+  if (status.iteration >= status.maxIterations) {
+    appendLog(ideaId, `🏁 Max iterations (${status.maxIterations}) completed.`);
+    status.status = 'completed';
+    await saveAgentLoopStatus(ideaId, status);
+    return status;
+  }
+
+  status.iteration++;
+  appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
+
+  await executeSpecIteration(ideaId, status);
+  return await getAgentLoopStatus(ideaId);
+}
+
+/**
+ * Execute one Builder + Critic spec iteration.
+ */
+async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise<void> {
+  const workspacePath = getWorkspaceBase() + '/' + ideaId;
+  const currentFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  const filesToSupply = currentFiles.filter(rel =>
+    !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
+    rel !== 'agent_loop.js' && rel !== 'kill.lock' &&
+    /\.(md|txt|json|js|ts|tsx|html|css)$/.test(rel)
+  );
+
+  const fileContents: string[] = [];
+  for (const file of filesToSupply) {
+    const content = await readWorkspaceFile(ideaId, file);
+    fileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+  }
+  const currentFilesContent = fileContents.join('\n\n');
+
+  // === BUILDER PERSONA ===
+  appendLog(ideaId, '🤖 Persona A (The Builder) is drafting updates...');
+  const builderPrompt = `You are "The Builder AI", an expert software architect, requirements engineer, and software developer.
+Your goal is to build out a complete, production-grade technical design, requirements specification, and architecture blueprint inside this workspace.
+
+Here is the current state of files in the workspace:
+${currentFilesContent}
+
+Analyze these files and any critique provided previously. Rewrite or add content to these files to make them complete, robust, and professional.
+
+You MUST format your output as a series of instructions containing the file contents to write, like this:
+@@@ FILE: filename.md
+[New file content here]
+@@@ END FILE @@@
+
+Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
+
+  await writeWorkspaceFile(ideaId, 'debug_payload.txt', builderPrompt);
+
+  const builderResponse = await openai.chat.completions.create({
+    model: MODEL_NAME,
+    messages: [
+      { role: 'system', content: 'You are an elite developer and software builder.' },
+      { role: 'user', content: builderPrompt }
+    ],
+    temperature: 0.2
+  });
+
+  const builderText = builderResponse.choices[0]?.message?.content || '';
+  const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
+  let match;
+  const filesUpdatedThisTurn: string[] = [];
+
+  while ((match = fileRegex.exec(builderText)) !== null) {
+    const filename = match[1].trim();
+    const content = match[2];
+    if (filename && validateWorkspaceFilePath(filename)) {
+      await writeWorkspaceFile(ideaId, filename, content);
+      filesUpdatedThisTurn.push(filename);
+      appendLog(ideaId, `✍️ Builder AI updated: ${filename}`);
+    }
+  }
+
+  if (filesUpdatedThisTurn.length === 0) {
+    appendLog(ideaId, 'ℹ️ Builder suggested modifications but didn\'t write formatted file blocks.');
+  }
+
+  await executeCriticIteration(ideaId, status, workspacePath, filesUpdatedThisTurn);
+}
+
+/**
+ * Execute the Critic persona audit and update status/history.
+ */
+async function executeCriticIteration(
+  ideaId: string,
+  status: LoopStatus,
+  workspacePath: string,
+  filesUpdatedThisTurn: string[]
+): Promise<void> {
+  appendLog(ideaId, '🕵️ Persona B (The Critic) is auditing files...');
+
+  const updatedFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  const criticFilesToSupply = updatedFiles.filter(rel =>
+    !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
+    rel !== 'agent_loop.js' && rel !== 'kill.lock' &&
+    /\.(md|txt|json|js|ts|tsx|html|css)$/.test(rel)
+  );
+
+  const criticFileContents: string[] = [];
+  for (const file of criticFilesToSupply) {
+    const content = await readWorkspaceFile(ideaId, file);
+    criticFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+  }
+  const updatedFilesContent = criticFileContents.join('\n\n');
+
+  const criticPrompt = `You are "The Critic AI", an elite security analyst, business auditor, and technical consensus evaluator.
+Your goal is to inspect the software design artifacts and source files in this workspace to ensure they are complete, secure, logically consistent, and fulfill the project's original vision perfectly.
+
+Workspace Files:
+${updatedFilesContent}
+
+Critique the workspace meticulously. Check for security vulnerabilities (e.g., OWASP top 10), missing business requirements, incomplete architecture, or gaps in implementation.
+If everything is perfect and meets the goal of the project absolutely with no further revisions needed, output the exact phrase: "STATUS: APPROVED"
+Otherwise, provide constructive criticisms and detailed step-by-step correction instructions for "The Builder AI" to fix in the next iteration.`;
+
+  const criticResponse = await openai.chat.completions.create({
+    model: MODEL_NAME,
+    messages: [
+      { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
+      { role: 'user', content: criticPrompt }
+    ],
+    temperature: 0.1
+  });
+
+  const criticText = criticResponse.choices[0]?.message?.content || '';
+  appendLog(ideaId, '🕵️ Critic Audit completed. Recommending updates.');
+
+  const iterationHistory = `## Iteration ${status.iteration} Audit & Design Log\n` +
+    `**Timestamp:** ${new Date().toLocaleString()}\n` +
+    `### Builder Output Summary:\nUpdated files: ${filesUpdatedThisTurn.join(', ') || 'None'}\n\n` +
+    `### Critic Review & Recommendation:\n${criticText}\n\n---\n\n`;
+
+  const currentHistoryText = await readWorkspaceFile(ideaId, 'prompthistory.md');
+  await writeWorkspaceFile(ideaId, 'prompthistory.md', currentHistoryText + iterationHistory);
+
+  const isApproved = criticText.includes('STATUS: APPROVED');
+
+  if (isApproved) {
+    appendLog(ideaId, '🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.');
+    status.status = 'completed';
+    status.consensusReached = true;
+    await saveAgentLoopStatus(ideaId, status);
+
+    const clinerulesContent = `# Cline Project Implementation Rules\n\nThe specifications for this project have been officially APPROVED by the Critic AI!\n\nYour task is to automatically build out the complete codebase inside this workspace to implement the project described in \`goal.md\` using the approved requirements (\`requirements.md\`) and architecture (\`architecture.md\`).\n\n## 🛠️ Step-by-Step Implementation Instructions\n1. Analyze \`goal.md\`, \`requirements.md\`, and \`architecture.md\` carefully.\n2. Initialize the project (e.g., configure \`package.json\`, set up folders).\n3. Write fully complete, production-ready, highly secure code for all components.\n4. Ensure there are absolutely no placeholders or TODO comments.\n5. Create a verification script or run tests to confirm everything builds and runs perfectly.\n`;
+    try {
+      await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
+      appendLog(ideaId, '📄 Generated .clinerules for Cline integration!');
+    } catch (e) {
+      appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
+    }
+  } else {
+    await saveAgentLoopStatus(ideaId, status);
+  }
+}
+
+/**
+ * Execute one iteration of the developer code-writing loop.
+ * Used after consensus is reached to build the actual project.
+ */
+async function executeDeveloperLoopIteration(ideaId: string, status: LoopStatus): Promise<void> {
+  appendLog(ideaId, `⚙️ Starting Developer Iteration ${status.iteration + 1} of ${status.maxIterations}...`);
+
+  const workspacePath = getWorkspaceBase() + '/' + ideaId;
+  const currentFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  const filesToSupply = currentFiles.filter(rel =>
+    !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
+    rel !== 'agent_loop.js' && rel !== 'kill.lock'
+  );
+
+  const fileContents: string[] = [];
+  for (const file of filesToSupply) {
+    const content = await readWorkspaceFile(ideaId, file);
+    fileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
+  }
+
+  const goalContent = await readWorkspaceFile(ideaId, 'goal.md');
+  const devPrompt = `You are "The Builder-Developer AI", an elite full-stack engineer and automation script.
+Your task is to write actual WORKING code files inside this local workspace folder to implement the project described in goal.md.
+
+Project Goal:
+${goalContent}
+
+Current workspace files:
+${fileContents.join('\n\n')}
+
+RULES:
+1. Examine the current workspace files.
+2. Decide what packages, files, or scripts are required to make this program compile, build, or run correctly.
+3. Write actual, production-ready, complete code. Do not use placeholders or write TODOs.
+4. Output your file creations or edits using this EXACT syntax:
+@@@ FILE: filename.js
+[exact content of the file]
+@@@ END FILE @@@
+
+5. You can create multiple files in a single turn.`;
+
+  appendLog(ideaId, '🤖 Calling AI Developer to generate/refine code...');
+
+  try {
+    const devResponse = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: 'You are an elite developer and software builder. Write complete, production-ready code files. No placeholders.' },
+        { role: 'user', content: devPrompt }
+      ],
+      temperature: 0.2
+    });
+
+    const devText = devResponse.choices[0]?.message?.content || '';
+    const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
+    let match;
+    const devFilesUpdated: string[] = [];
+
+    while ((match = fileRegex.exec(devText)) !== null) {
+      const filename = match[1].trim();
+      const content = match[2];
+      if (filename && validateWorkspaceFilePath(filename)) {
+        await writeWorkspaceFile(ideaId, filename, content);
+        devFilesUpdated.push(filename);
+        appendLog(ideaId, `✍️ AI Developer created/updated: ${filename}`);
+      }
+    }
+
+    if (devFilesUpdated.length === 0) {
+      appendLog(ideaId, 'ℹ️ AI Developer suggested modifications but didn\'t write formatted file blocks.');
+    }
+
+    status.iteration++;
+    await saveAgentLoopStatus(ideaId, status);
+
+    if (status.iteration >= status.maxIterations) {
+      appendLog(ideaId, '🏁 Developer loop completed. All code files generated.');
+      status.status = 'completed';
+      await saveAgentLoopStatus(ideaId, status);
+    }
+  } catch (err: unknown) {
+    const error = err as Error;
+    appendLog(ideaId, `❌ Error in Developer iteration: ${error?.message || error}`);
+    status.status = 'failed';
+    status.error = error?.message || 'Unknown developer error';
+    await saveAgentLoopStatus(ideaId, status);
+  }
+}
+
 export async function runAgentLoop(
   ideaId: string,
   ideaTitle: string,
@@ -1294,197 +1569,6 @@ main().catch(console.error);`;
     launchIDE(ideaId, ideToOpen);
   }
 
-  // Start background loop runner process (stored globally to keep Vercel alive)
-  executionPromises[ideaId] = (async () => {
-    try {
-      if (status.consensusReached) {
-        await executeDeveloperLoop(ideaId, ideaTitle, ideaDesc, status, ideToOpen);
-        return;
-      }
-
-      while (status.iteration < status.maxIterations) {
-        if (abortControllers[ideaId]) {
-          appendLog(ideaId, `🛑 Agent Loop execution stopped by user.`);
-          status.status = 'stopped';
-          await saveAgentLoopStatus(ideaId, status);
-          return;
-        }
-
-        status.iteration++;
-        appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
-
-        // Read all current files recursively to supply as context
-        const currentFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
-        const filesToSupply = currentFiles.filter(rel => 
-          !rel.startsWith('.') &&
-          !rel.startsWith('node_modules/') &&
-          rel !== 'agent_loop.js' &&
-          rel !== 'kill.lock' &&
-          (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
-        );
-
-        const fileContents: string[] = [];
-        for (const file of filesToSupply) {
-          const content = await readWorkspaceFile(ideaId, file);
-          fileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
-        }
-        const currentFilesContent = fileContents.join('\n\n');
-
-        // Step 1: BUILDER PERSONA
-        appendLog(ideaId, `🤖 Persona A (The Builder) is drafting updates...`);
-        const builderPrompt = `You are "The Builder AI", an expert software architect, requirements engineer, and software developer.
-Your goal is to build out a complete, production-grade technical design, requirements specification, and architecture blueprint inside this workspace to fulfill:
-Project Title: ${ideaTitle}
-Project Goal: ${ideaDesc}
-
-Here is the current state of files in the workspace:
-${currentFilesContent}
-
-Analyze these files and any critique provided previously. Rewrite or add content to these files to make them complete, robust, and professional.
-Specify the exact file paths and file contents that need to be created or overwritten.
-
-You MUST format your output as a series of instructions containing the file contents to write, like this:
-@@@ FILE: filename.md
-[New file content here]
-@@@ END FILE @@@
-
-Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
-
-        // Temporarily log out the builderPrompt into a file to see exactly what we're sending
-        await writeWorkspaceFile(ideaId, 'debug_payload.txt', builderPrompt);
-
-        const builderResponse = await openai.chat.completions.create({
-          model: MODEL_NAME,
-          messages: [
-            { role: 'system', content: 'You are an elite developer and software builder.' },
-            { role: 'user', content: builderPrompt }
-          ],
-          temperature: 0.2
-        });
-
-        const builderText = builderResponse.choices[0]?.message?.content || '';
-
-        // Parse and apply files written by the Builder (allowing subdirectories)
-        const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
-        let match;
-        const filesUpdatedThisTurn: string[] = [];
-
-        while ((match = fileRegex.exec(builderText)) !== null) {
-          const filename = match[1].trim();
-          const content = match[2];
-          
-          if (filename && validateWorkspaceFilePath(filename)) {
-            await writeWorkspaceFile(ideaId, filename, content);
-            filesUpdatedThisTurn.push(filename);
-            appendLog(ideaId, `✍️ Builder AI updated: ${filename}`);
-          } else if (filename) {
-            appendLog(ideaId, `⚠️ Blocked write of invalid or unsafe file path: ${filename}`);
-          }
-        }
-
-        if (filesUpdatedThisTurn.length === 0) {
-          appendLog(ideaId, `ℹ️ Builder suggested modifications but didn't write formatted file blocks. Saving output to raw logs.`);
-        }
-
-        // Step 2: CRITIC PERSONA
-        appendLog(ideaId, `🕵️ Persona B (The Critic) is auditing files against targets...`);
-        
-        // Reload files content recursively to give to the Critic
-        const updatedFiles = isFirebaseConfigured ? status.filesCreated : getFilesRecursively(workspacePath).map(f => f.relativePath);
-        const criticFilesToSupply = updatedFiles.filter(rel => 
-          !rel.startsWith('.') &&
-          !rel.startsWith('node_modules/') &&
-          rel !== 'agent_loop.js' &&
-          rel !== 'kill.lock' &&
-          (rel.endsWith('.md') || rel.endsWith('.txt') || rel.endsWith('.json') || rel.endsWith('.js') || rel.endsWith('.ts') || rel.endsWith('.tsx') || rel.endsWith('.html') || rel.endsWith('.css'))
-        );
-
-        const criticFileContents: string[] = [];
-        for (const file of criticFilesToSupply) {
-          const content = await readWorkspaceFile(ideaId, file);
-          criticFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
-        }
-        const updatedFilesContent = criticFileContents.join('\n\n');
-
-        const criticPrompt = `You are "The Critic AI", an elite security analyst, business auditor, and technical consensus evaluator.
-Your goal is to inspect the software design artifacts and source files in this workspace to ensure they are complete, secure, logically consistent, and fulfill the project's original vision perfectly.
-
-Workspace Files:
-${updatedFilesContent}
-
-Critique the workspace meticulously. Check for security vulnerabilities (e.g., OWASP top 10), missing business requirements, incomplete architecture, or gaps in implementation.
-If everything is perfect and meets the goal of the project absolutely with no further revisions needed, output the exact phrase: "STATUS: APPROVED".
-Otherwise, provide constructive criticisms and detailed step-by-step correction instructions for "The Builder AI" to fix in the next iteration.`;
-
-        const criticResponse = await openai.chat.completions.create({
-          model: MODEL_NAME,
-          messages: [
-            { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
-            { role: 'user', content: criticPrompt }
-          ],
-          temperature: 0.1
-        });
-
-        const criticText = criticResponse.choices[0]?.message?.content || '';
-        appendLog(ideaId, `🕵️ Critic Audit completed. Recommending updates.`);
-
-        const isApproved = criticText.includes('STATUS: APPROVED');
-
-        // Record history
-        const iterationHistory = `## Iteration ${status.iteration} Audit & Design Log\n` +
-          `**Timestamp:** ${new Date().toLocaleString()}\n` +
-          `### Builder Output Summary:\nUpdated files: ${filesUpdatedThisTurn.join(', ') || 'None'}\n\n` +
-          `### Critic Review & Recommendation:\n${criticText}\n\n` +
-          `---\n\n`;
-
-        const currentHistoryText = await readWorkspaceFile(ideaId, 'prompthistory.md');
-        await writeWorkspaceFile(ideaId, 'prompthistory.md', currentHistoryText + iterationHistory);
-
-        if (isApproved) {
-          appendLog(ideaId, `🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.`);
-          status.status = 'completed';
-          status.consensusReached = true;
-          await saveAgentLoopStatus(ideaId, status);
-
-          // Generate .clinerules to guide Cline
-          const clinerulesContent = `# Cline Project Implementation Rules
-
-The specifications for this project have been officially APPROVED by the Critic AI!
-
-Your task is to automatically build out the complete codebase inside this workspace to implement the project described in \`goal.md\` using the approved requirements (\`requirements.md\`) and architecture (\`architecture.md\`).
-
-## 🛠️ Step-by-Step Implementation Instructions
-1. Analyze \`goal.md\`, \`requirements.md\`, and \`architecture.md\` carefully.
-2. Initialize the project (e.g., configure \`package.json\`, set up folders).
-3. Write fully complete, production-ready, highly secure code for all components.
-4. Ensure there are absolutely no placeholders or TODO comments.
-5. Create a verification script or run tests to confirm everything builds and runs perfectly.
-`;
-          try {
-            await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
-            appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
-          } catch (e) {
-            appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
-          }
-
-          // Start automated Developer loop (5 cycles) to write actual code files
-          await executeDeveloperLoop(ideaId, ideaTitle, ideaDesc, status, ideToOpen);
-          return;
-        }
-      }
-
-      appendLog(ideaId, `🏁 Max iterations (${status.maxIterations}) completed. specifications generated.`);
-      status.status = 'completed';
-      await saveAgentLoopStatus(ideaId, status);
-    } catch (err: unknown) {
-      const error = err as Error;
-      appendLog(ideaId, `❌ Error in Agent Loop execution: ${error?.message || error}`);
-      status.status = 'failed';
-      status.error = error?.message || 'Unknown runner error';
-      await saveAgentLoopStatus(ideaId, status);
-    }
-  })().finally(() => {
-    // Clean up stale promise reference once execution completes
-    delete executionPromises[ideaId];
-  });
+  // Execute first iteration synchronously (Vercel-compatible: one iteration per request)
+  await runAgentLoopIteration(ideaId);
 }
