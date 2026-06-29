@@ -334,7 +334,9 @@ export function stopAgentLoop(ideaId: string) {
 
 export function appendLog(ideaId: string, message: string) {
   const status = getAgentLoopStatusSync(ideaId);
-  const timestamp = new Date().toLocaleTimeString();
+  // Embed an ISO-8601 timestamp so the UI can render it in the viewer's local
+  // computer time (the server may run in UTC on cloud hosts like Vercel).
+  const timestamp = new Date().toISOString();
   status.logs.push(`[${timestamp}] ${message}`);
   console.log(`[AgentLoop ${ideaId}] ${message}`);
   if (isFirebaseConfigured && db) {
@@ -772,14 +774,26 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
 
   await writeWorkspaceFile(ideaId, 'debug_payload.txt', builderPrompt);
 
-  const builderResponse = await openai.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [
-      { role: 'system', content: 'You are an elite developer and software builder.' },
-      { role: 'user', content: builderPrompt }
-    ],
-    temperature: 0.2
-  });
+  let builderResponse;
+  try {
+    builderResponse = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: 'You are an elite developer and software builder.' },
+        { role: 'user', content: builderPrompt }
+      ],
+      temperature: 0.2
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    const errMsg = error?.message || String(err);
+    appendLog(ideaId, `❌ Builder AI call failed: ${errMsg}`);
+    appendLog(ideaId, '⏹️ Halting iteration — the Critic will not run until the Builder succeeds. Check server logs for the full error.');
+    status.status = 'failed';
+    status.error = `Builder AI failed: ${errMsg}`;
+    await saveAgentLoopStatus(ideaId, status);
+    return;
+  }
 
   const builderText = builderResponse.choices[0]?.message?.content || '';
   const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
@@ -797,7 +811,13 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
   }
 
   if (filesUpdatedThisTurn.length === 0) {
-    appendLog(ideaId, 'ℹ️ Builder suggested modifications but didn\'t write formatted file blocks.');
+    // Surface a preview of the raw model output so we can diagnose whether the
+    // model returned an error/refusal or simply used a different output format.
+    const preview = builderText.slice(0, 500).replace(/\s+/g, ' ').trim();
+    appendLog(
+      ideaId,
+      `ℹ️ Builder responded (model: ${MODEL_NAME}) but produced no parseable @@@ FILE blocks. Raw preview: "${preview}${builderText.length > 500 ? '…' : ''}"`
+    );
   }
 
   await executeCriticIteration(ideaId, status, workspacePath, filesUpdatedThisTurn);
@@ -838,14 +858,26 @@ Critique the workspace meticulously. Check for security vulnerabilities (e.g., O
 If everything is perfect and meets the goal of the project absolutely with no further revisions needed, output the exact phrase: "STATUS: APPROVED"
 Otherwise, provide constructive criticisms and detailed step-by-step correction instructions for "The Builder AI" to fix in the next iteration.`;
 
-  const criticResponse = await openai.chat.completions.create({
-    model: MODEL_NAME,
-    messages: [
-      { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
-      { role: 'user', content: criticPrompt }
-    ],
-    temperature: 0.1
-  });
+  let criticResponse;
+  try {
+    criticResponse = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
+        { role: 'user', content: criticPrompt }
+      ],
+      temperature: 0.1
+    });
+  } catch (err: unknown) {
+    const error = err as Error;
+    const errMsg = error?.message || String(err);
+    appendLog(ideaId, `❌ Critic AI call failed: ${errMsg}`);
+    appendLog(ideaId, '⏹️ Halting iteration — consensus could not be evaluated. Check server logs for the full error.');
+    status.status = 'failed';
+    status.error = `Critic AI failed: ${errMsg}`;
+    await saveAgentLoopStatus(ideaId, status);
+    return;
+  }
 
   const criticText = criticResponse.choices[0]?.message?.content || '';
   appendLog(ideaId, '🕵️ Critic Audit completed. Recommending updates.');

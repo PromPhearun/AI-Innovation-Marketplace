@@ -3,6 +3,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoopStatus } from '@/lib/ai/agent-loop-runner';
 
+// Convert the ISO-8601 timestamp embedded in a log line (server-side) into the
+// viewer's local computer time. Falls back to the raw string for legacy log
+// lines that were stamped with a server-local/UTC time string.
+function formatLogTimestamp(log: string): { time: string | null; body: string } {
+  const match = log.match(
+    /^\[([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.\d+)?Z)\]\s([\s\S]*)$/
+  );
+  if (match) {
+    try {
+      // toLocaleTimeString() uses the browser's local timezone = the user's computer time
+      const local = new Date(match[1]).toLocaleTimeString();
+      return { time: local, body: match[2] };
+    } catch {
+      return { time: null, body: log };
+    }
+  }
+  return { time: null, body: log };
+}
+
+
 interface AgentLoopPanelProps {
   ideaId: string;
   ideaTitle: string;
@@ -651,11 +671,21 @@ export default function AgentLoopPanel({
                   if (log.includes('🤖 Persona A')) colorClass = 'text-amber-400/90';
                   if (log.includes('🕵️ Persona B')) colorClass = 'text-violet-400/90';
                   if (log.includes('⚠️')) colorClass = 'text-amber-500';
+                  if (log.includes('❌')) colorClass = 'text-rose-400 font-bold';
+
+                  const { time, body } = formatLogTimestamp(log);
 
                   return (
                     <div key={index} className={colorClass}>
                       <span className="text-slate-600 mr-2">$</span>
-                      {log}
+                      {time !== null ? (
+                        <>
+                          <span className="text-slate-500 mr-1.5">[{time}]</span>
+                          {body}
+                        </>
+                      ) : (
+                        log
+                      )}
                     </div>
                   );
                 })
