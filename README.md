@@ -45,7 +45,9 @@ $$\text{Innovation Score} = (S_{\text{CFO}} \times 0.25) + (S_{\text{ChEO}} \tim
 
 *   **Frontend:** Next.js 15 (App Router), React, TypeScript, Tailwind CSS, shadcn/ui
 *   **Database & Auth:** Google Firebase Auth, Cloud Firestore (NoSQL, Vector Search)
-*   **AI Layer:** Google Gemini 3.5 Flash via official `@google/genai`
+## 🤖 AI Technology
+*   **AI Layer:** `deepseek-v4-pro` via OpenAI-compatible SDK (LiteLLM proxy at `litellmsa.deriv.ai`)
+*   **Model:** DeepSeek V4 Pro (with OpenAI SDK compatibility)
 *   **Validation:** React Hook Form & Zod Schema enforcement
 
 ---
@@ -53,17 +55,22 @@ $$\text{Innovation Score} = (S_{\text{CFO}} \times 0.25) + (S_{\text{ChEO}} \tim
 ## ⚙️ Development & Setup
 
 ### 1. Environment Configuration
-Create a `.env` file in the root directory:
+Create a `.env` file in the root directory (copy from `.env.example`):
 
 ```env
+# OpenAI / LiteLLM
+OPENAI_API_KEY=your_api_key
+API_BASE_URL=https://litellmsa.deriv.ai/v1
+OPENAI_MODEL_NAME=deepseek-v4-pro
+
+# Firebase (set to false for mock DB, true for real Firestore)
+NEXT_PUBLIC_USE_FIREBASE=true
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-
-GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ### 2. Dependency Installation

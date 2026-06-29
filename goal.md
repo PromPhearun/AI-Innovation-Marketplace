@@ -235,12 +235,14 @@ Preferred:
 
 ---
 
-## Vector Search
+## Duplicate Detection
 
-Use Firestore Vector Search / Embeddings for:
+Use Jaccard similarity + title match bonus (token-based engine in `src/lib/ai/similarity.ts`) for:
 
 * Duplicate Detection
 * Similar Idea Discovery
+
+Thresholds: ≥50% = critical duplicate, ≥30% = potential similar.
 
 ---
 

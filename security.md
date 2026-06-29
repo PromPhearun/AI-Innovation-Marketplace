@@ -4,13 +4,13 @@ This document establishes mandatory security guardrails for Cline while building
 
 🛡️ Core Security Directives
 1. Package & Dependency Scanning
-Before running any installation commands (e.g., pip install, npm install), you must verify that the packages are safe, official, and free of typosquatting malware.
+Before running any installation commands (e.g., `npm install`), you must verify that the packages are safe, official, and free of typosquatting malware.
 
-Verify Library Legitimacy: Only download established, official libraries (streamlit, openai, requests, python-dotenv). Do not install unverified or obscure third-party wrappers.
+Verify Library Legitimacy: Only download established, official libraries (`next`, `react`, `firebase`, `openai`, `zod`, `tailwindcss`). Do not install unverified or obscure third-party wrappers.
 
-Scan before Install: If adding new dependencies to requirements.txt, perform a quick security baseline verification. Use tools like pip-audit if available in the environment to check for known vulnerabilities.
+Scan before Install: If adding new dependencies to `package.json`, perform a quick security baseline verification. Use tools like `npm audit` if available in the environment to check for known vulnerabilities.
 
-Version Pinning: Always pin package versions in requirements.txt to prevent malicious upstream dependency updates from corrupting the local environment.
+Version Pinning: Always pin package versions in `package.json` to prevent malicious upstream dependency updates from corrupting the local environment.
 
 2. Malicious Command & Script Prevention
 You are strictly prohibited from downloading or running unverified bash scripts, curl-to-sh commands, or binary executables from external, non-official repositories.

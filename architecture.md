@@ -35,9 +35,9 @@ The architecture is designed for rapid development during a hackathon while rema
 
 ## AI Layer
 
-Primary:
-
-* deepseek-v4-pro
+*   **Model:** `deepseek-v4-pro` via LiteLLM proxy (`litellmsa.deriv.ai`)
+*   **SDK:** OpenAI-compatible (`openai` npm package)
+*   **Agent Loop Builder:** `builder_critic` for the local Agent Loop code generation
 
 ---
 
@@ -420,29 +420,27 @@ New Idea
 
 ↓
 
-Generate Embedding
+Tokenize Title & Description (remove stopwords)
 
 ↓
 
-Load Existing Embeddings
+Load Existing Ideas
 
 ↓
 
-Calculate Cosine Similarity
+Calculate Jaccard Similarity + Title Match Bonus
 
 ↓
 
-Return Similar Ideas
+Return Similar Ideas (>15% threshold, ranked by score)
 
-Threshold:
+Thresholds:
 
-```typescript
-0.85
-```
+- **≥ 50% similarity:** Critical duplicate warning (strongly suggest merging)
+- **≥ 30% similarity:** Potential similar ideas warning
+- **> 15% similarity:** Listed as related ideas
 
-Meaning:
-
-85% similarity or higher.
+Implementation: `src/lib/ai/similarity.ts` — lightweight, zero-dependency token-based engine.
 
 ---
 
@@ -519,15 +517,22 @@ Admins:
 
 # Environment Variables
 
+See `.env.example` for the full template. Key variables:
+
 ```env
+# AI
+OPENAI_API_KEY=
+API_BASE_URL=https://litellmsa.deriv.ai/v1
+OPENAI_MODEL_NAME=deepseek-v4-pro
+
+# Firebase
+NEXT_PUBLIC_USE_FIREBASE=
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-
-GEMINI_API_KEY=
 ```
 
 ---
