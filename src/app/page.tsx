@@ -103,7 +103,9 @@ export default function DashboardPage() {
         }
       }
 
-      setIdeas(mergedIdeas);
+      // Exclude implemented ideas — they belong in the Implemented Hub, not Innovation Hub
+      const hubIdeas = mergedIdeas.filter((idea) => idea.status !== 'implemented');
+      setIdeas(hubIdeas);
 
       let needsFallback = false;
       for (const idea of data) {
