@@ -112,8 +112,8 @@ async function handleStatusUpdate(
         if (typeof appDescription !== 'string') {
           return NextResponse.json({ error: 'App description must be a string' }, { status: 400 });
         }
-        if (appDescription.length > 500) {
-          return NextResponse.json({ error: 'App description must be 500 characters or less' }, { status: 400 });
+        if (appDescription.length > 2000) {
+          return NextResponse.json({ error: 'App description must be 2000 characters or less' }, { status: 400 });
         }
         validatedAppDescription = appDescription.trim();
       }

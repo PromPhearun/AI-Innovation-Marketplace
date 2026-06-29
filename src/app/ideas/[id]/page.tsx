@@ -2005,11 +2005,11 @@ export default function IdeaDetailsPage() {
                 value={appDescriptionInput}
                 onChange={(e) => setAppDescriptionInput(e.target.value)}
                 placeholder="Brief description of the live app that will appear in the Active Apps directory..."
-                maxLength={500}
+                maxLength={2000}
                 rows={3}
                 className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all resize-none"
               />
-              <p className="text-[10px] text-slate-400">{appDescriptionInput.length}/500 chars</p>
+              <p className="text-[10px] text-slate-400">{appDescriptionInput.length}/2000 chars</p>
             </div>
 
             <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
