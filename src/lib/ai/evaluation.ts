@@ -386,7 +386,7 @@ Each phase object MUST match this schema:
   "ownerDepartment": "string (e.g., 'Engineering', 'Security', 'Product', 'DevOps')"
 }
 
-Respond strictly with a JSON array of these 4 phases. Do not include any other markdown formatting outside of JSON.`;
+Respond strictly with a JSON object containing a \"phases\" array of these 4 phases. Format: { \"phases\": [...] }. Do not include any other markdown formatting outside of JSON.`;
 
   try {
     if (!process.env.OPENAI_API_KEY) {
@@ -398,7 +398,7 @@ Respond strictly with a JSON array of these 4 phases. Do not include any other m
       messages: [
         {
           role: 'system',
-          content: 'You are a technical project manager. You output strict JSON arrays representing implementation roadmaps.',
+          content: 'You are a technical project manager. You output strict JSON objects containing implementation roadmaps.',
         },
         {
           role: 'user',

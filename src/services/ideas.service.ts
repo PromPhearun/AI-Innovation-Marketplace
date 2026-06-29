@@ -468,7 +468,7 @@ export const ideasService = {
       }
 
       // Delete single-document collections keyed by ideaId
-      const singleDocCollections = ['summaries', 'prds', 'roadmaps', 'clickups'];
+      const singleDocCollections = ['summaries', 'prds', 'roadmaps', 'clickups', 'agentLoops'];
       for (const colName of singleDocCollections) {
         try {
           await deleteDoc(doc(db, colName, id));

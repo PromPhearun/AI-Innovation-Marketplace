@@ -388,17 +388,14 @@ class MockDB {
 
   // Users Service fallback
   getUsers(): User[] {
-    this.loadFromStorage();
     return this.users;
   }
 
   getUser(id: string): User | undefined {
-    this.loadFromStorage();
     return this.users.find(u => u.id === id);
   }
 
   createUser(user: User): User {
-    this.loadFromStorage();
     this.users.push(user);
     this.saveToStorage();
     return user;
@@ -406,17 +403,14 @@ class MockDB {
 
   // Ideas Service fallback
   getIdeas(): Idea[] {
-    this.loadFromStorage();
     return this.ideas;
   }
 
   getIdea(id: string): Idea | undefined {
-    this.loadFromStorage();
     return this.ideas.find(i => i.id === id);
   }
 
   createIdea(idea: Idea): Idea {
-    this.loadFromStorage();
     this.ideas.push(idea);
     this.saveToStorage();
     return idea;
@@ -432,7 +426,6 @@ class MockDB {
     implementedAt?: string,
     appDescription?: string
   ): Idea | undefined {
-    this.loadFromStorage();
     const idea = this.ideas.find(i => i.id === id);
     if (idea) {
       idea.status = status;
@@ -450,7 +443,6 @@ class MockDB {
   }
 
   addManagerComment(ideaId: string, comment: ManagerComment): Idea | undefined {
-    this.loadFromStorage();
     const idea = this.ideas.find(i => i.id === ideaId);
     if (idea) {
       if (!idea.managerComments) {
@@ -464,12 +456,10 @@ class MockDB {
 
   // Reviews fallback
   getReviews(ideaId: string): AIReview[] {
-    this.loadFromStorage();
     return this.reviews.filter(r => r.ideaId === ideaId);
   }
 
   createReview(review: AIReview): AIReview {
-    this.loadFromStorage();
     this.reviews.push(review);
     this.saveToStorage();
     return review;
@@ -477,101 +467,84 @@ class MockDB {
 
   // Votes fallback
   getVotes(ideaId: string): Vote[] {
-    this.loadFromStorage();
     return this.votes.filter(v => v.ideaId === ideaId);
   }
 
   getAllVotes(): Vote[] {
-    this.loadFromStorage();
     return this.votes;
   }
 
   addVote(vote: Vote) {
-    this.loadFromStorage();
     this.votes = this.votes.filter(v => !(v.ideaId === vote.ideaId && v.userId === vote.userId));
     this.votes.push(vote);
     this.saveToStorage();
   }
 
   removeVote(ideaId: string, userId: string) {
-    this.loadFromStorage();
     this.votes = this.votes.filter(v => !(v.ideaId === ideaId && v.userId === userId));
     this.saveToStorage();
   }
 
   // Comments fallback
   getComments(ideaId: string): Comment[] {
-    this.loadFromStorage();
     return this.comments.filter(c => c.ideaId === ideaId);
   }
 
   getAllComments(): Comment[] {
-    this.loadFromStorage();
     return this.comments;
   }
 
   addComment(comment: Comment): Comment {
-    this.loadFromStorage();
     this.comments.push(comment);
     this.saveToStorage();
     return comment;
   }
 
   getSummary(ideaId: string): Summary | undefined {
-    this.loadFromStorage();
     return this.summaries.find(s => s.ideaId === ideaId);
   }
 
   saveSummary(summary: Summary): void {
-    this.loadFromStorage();
     this.summaries = this.summaries.filter(s => s.ideaId !== summary.ideaId);
     this.summaries.push(summary);
     this.saveToStorage();
   }
 
   getPRD(ideaId: string): PRD | undefined {
-    this.loadFromStorage();
     return this.prds.find(p => p.ideaId === ideaId);
   }
 
   savePRD(prd: PRD): void {
-    this.loadFromStorage();
     this.prds = this.prds.filter(p => p.ideaId !== prd.ideaId);
     this.prds.push(prd);
     this.saveToStorage();
   }
 
   getRoadmap(ideaId: string): Roadmap | undefined {
-    this.loadFromStorage();
     return this.roadmaps.find(r => r.ideaId === ideaId);
   }
 
   saveRoadmap(roadmap: Roadmap): void {
-    this.loadFromStorage();
     this.roadmaps = this.roadmaps.filter(r => r.ideaId !== roadmap.ideaId);
     this.roadmaps.push(roadmap);
     this.saveToStorage();
   }
 
   getClickUpSync(ideaId: string): ClickUpSync | undefined {
-    this.loadFromStorage();
     return this.clickups.find(c => c.ideaId === ideaId);
   }
 
   getAllClickUpSyncs(): ClickUpSync[] {
-    this.loadFromStorage();
     return this.clickups;
   }
 
   saveClickUpSync(clickup: ClickUpSync): void {
-    this.loadFromStorage();
     this.clickups = this.clickups.filter(c => c.ideaId !== clickup.ideaId);
     this.clickups.push(clickup);
     this.saveToStorage();
   }
 
   deleteIdea(id: string): boolean {
-    this.loadFromStorage();
     const index = this.ideas.findIndex(i => i.id === id);
     if (index === -1) return false;
     this.ideas.splice(index, 1);
