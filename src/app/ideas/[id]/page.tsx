@@ -1986,7 +1986,7 @@ export default function IdeaDetailsPage() {
                       const res = await fetch(`/api/ideas/${idea.id}/app-description`, { method: 'POST' });
                       if (res.ok) {
                         const data = await res.json();
-                        setAppDescriptionInput(data.description || '');
+                        setAppDescriptionInput(data.appDescription || '');
                       }
                     } catch (e) { console.error(e); }
                     finally { setIsGeneratingAppDesc(false); }
