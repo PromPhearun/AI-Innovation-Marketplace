@@ -61,6 +61,7 @@ export interface LoopStatus {
 const globalWithLoops = global as typeof globalThis & {
   _agentLoops?: Record<string, LoopStatus>;
   _abortControllers?: Record<string, boolean>;
+  _executionPromises?: Record<string, Promise<void>>;
 };
 
 if (!globalWithLoops._agentLoops) {
@@ -69,9 +70,13 @@ if (!globalWithLoops._agentLoops) {
 if (!globalWithLoops._abortControllers) {
   globalWithLoops._abortControllers = {};
 }
+if (!globalWithLoops._executionPromises) {
+  globalWithLoops._executionPromises = {};
+}
 
 const agentLoops = globalWithLoops._agentLoops;
 const abortControllers = globalWithLoops._abortControllers;
+const executionPromises = globalWithLoops._executionPromises;
 
 // Determine workspace base depending on the environment. For local, save on the user's Desktop.
 const getWorkspaceBase = () => {
@@ -1289,8 +1294,8 @@ main().catch(console.error);`;
     launchIDE(ideaId, ideToOpen);
   }
 
-  // Start background loop runner process
-  void (async () => {
+  // Start background loop runner process (stored globally to keep Vercel alive)
+  executionPromises[ideaId] = (async () => {
     try {
       if (status.consensusReached) {
         await executeDeveloperLoop(ideaId, ideaTitle, ideaDesc, status, ideToOpen);
@@ -1478,5 +1483,8 @@ Your task is to automatically build out the complete codebase inside this worksp
       status.error = error?.message || 'Unknown runner error';
       await saveAgentLoopStatus(ideaId, status);
     }
-  })();
+  })().finally(() => {
+    // Clean up stale promise reference once execution completes
+    delete executionPromises[ideaId];
+  });
 }
