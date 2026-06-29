@@ -24,6 +24,8 @@ export default function AgentLoopPanel({
   const [viewingContent, setViewingContent] = useState<string>('');
   const [isViewingLoading, setIsViewingLoading] = useState(false);
   const [showIdeGuideModal, setShowIdeGuideModal] = useState(false);
+  const [autoDownloadTriggered, setAutoDownloadTriggered] = useState(false);
+  const [showFirebaseWarning, setShowFirebaseWarning] = useState(false);
 
   // Poll status from the API
   const fetchStatus = async () => {
@@ -67,6 +69,32 @@ export default function AgentLoopPanel({
       terminalContainerRef.current.scrollTop = terminalContainerRef.current.scrollHeight;
     }
   }, [status?.logs]);
+
+  // Auto-download workspace when consensus is reached (cloud env)
+  useEffect(() => {
+    if (!status?.consensusReached || autoDownloadTriggered) return;
+    const isCloudEnv = typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+    if (isCloudEnv && status.filesCreated.length > 0) {
+      setAutoDownloadTriggered(true);
+      // Small delay to let UI update before triggering download
+      setTimeout(() => {
+        window.location.href = `/api/ideas/${ideaId}/agent-loop/download`;
+      }, 800);
+    }
+  }, [status?.consensusReached, autoDownloadTriggered, ideaId, status?.filesCreated]);
+
+  // Check Firebase configuration on mount for cloud environments
+  useEffect(() => {
+    const isCloudEnv = typeof window !== 'undefined' &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1';
+    const isFirebaseOn = process.env.NEXT_PUBLIC_USE_FIREBASE === 'true';
+    if (isCloudEnv && !isFirebaseOn) {
+      setShowFirebaseWarning(true);
+    }
+  }, []);
 
   // Trigger loop execution
   const handleStartLoop = async () => {
@@ -238,6 +266,25 @@ export default function AgentLoopPanel({
 
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* FIREBASE NOT CONFIGURED WARNING */}
+      {showFirebaseWarning && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/60 p-4 rounded-xl flex items-start gap-3 text-xs shadow-sm animate-fade-in">
+          <span className="text-lg mt-0.5 shrink-0">⚠️</span>
+          <div className="space-y-1.5 text-amber-800 dark:text-amber-300 min-w-0">
+            <strong className="font-extrabold uppercase tracking-wide text-[11px] block">
+              Firebase Storage Not Configured — Ephemeral Workspace
+            </strong>
+            <p>
+              This app is running on a cloud server without persistent storage. All generated workspace files will be <strong className="text-amber-900 dark:text-amber-200">lost</strong> when the server restarts or the instance recycles. 
+              Download your workspace immediately after consensus is reached.
+            </p>
+            <p className="text-amber-600/80 dark:text-amber-400/80">
+              To enable persistent storage, set <code className="bg-amber-100 dark:bg-amber-900/30 px-1 py-0.5 rounded text-[10px]">NEXT_PUBLIC_USE_FIREBASE=true</code> and configure Firebase environment variables in Vercel.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* MISSION CONTROL CENTER */}
       <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-6 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -355,6 +402,25 @@ export default function AgentLoopPanel({
                 </svg>
                 Download Workspace Spec Archive (.zip)
               </button>
+            )}
+
+            {/* IDE Protocol Links — shown on localhost when consensus reached */}
+            {status?.consensusReached && !(
+              typeof window !== 'undefined' &&
+              window.location.hostname !== 'localhost' &&
+              window.location.hostname !== '127.0.0.1'
+            ) && (
+              <div className="flex gap-2">
+                <a
+                  title={`Open workspace folder in ${selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}`}
+                  className="flex-1 text-center py-2 px-2 rounded-lg border text-[11px] font-bold bg-indigo-50 dark:bg-indigo-950/20 border-indigo-200 dark:border-indigo-800/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all"
+                  href={`${selectedIde}://file/${encodeURIComponent(`~/Desktop/agent_workspace/${displayFolderName}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
+                </a>
+              </div>
             )}
           </div>
         </div>
@@ -649,13 +715,31 @@ export default function AgentLoopPanel({
                 </div>
               </div>
 
+              {status?.consensusReached && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-xl flex gap-3 text-emerald-800 dark:text-emerald-300">
+                  <span className="text-sm mt-0.5">✅</span>
+                  <div>
+                    <strong className="font-extrabold text-[11px] block uppercase tracking-wider mb-0.5">Workspace Generated & Auto-Downloaded</strong>
+                    {autoDownloadTriggered ? (
+                      <p>The workspace archive has been automatically downloaded. If the download didn&apos;t start, use the button below.</p>
+                    ) : (
+                      <p>The spec engine has reached consensus! Download your workspace archive using the button below.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <p className="font-bold text-slate-800 dark:text-slate-200">
                   Follow these simple steps to load this workspace locally:
                 </p>
                 <ol className="list-decimal pl-5 space-y-2 text-slate-600 dark:text-slate-400">
                   <li>
-                    Click the <strong className="text-slate-800 dark:text-slate-200">Download Workspace Spec Archive (.zip)</strong> button in the UI.
+                    {status?.consensusReached ? (
+                      <span>Click the <strong className="text-slate-800 dark:text-slate-200">Download Workspace</strong> button below.</span>
+                    ) : (
+                      <span>Wait for the spec engine to complete, then click the <strong className="text-slate-800 dark:text-slate-200">Download Workspace Spec Archive (.zip)</strong> button in the UI.</span>
+                    )}
                   </li>
                   <li>
                     Extract the downloaded zip archive to any folder on your local computer.
@@ -671,10 +755,26 @@ export default function AgentLoopPanel({
                   </li>
                 </ol>
               </div>
+
+              {status?.consensusReached && (
+                <button
+                  type="button"
+                  onClick={handleDownloadWorkspace}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Workspace Spec Archive (.zip)
+                </button>
+              )}
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900/50">
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-between gap-2 bg-slate-50 dark:bg-slate-900/50">
+              <p className="text-[10px] text-slate-500 self-center">
+                Files stored persistently in Firebase Storage
+              </p>
               <button
                 type="button"
                 onClick={() => setShowIdeGuideModal(false)}
