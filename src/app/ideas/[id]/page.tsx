@@ -1536,6 +1536,96 @@ export default function IdeaDetailsPage() {
               </div>
             </div>
 
+            {/* Manager Comments Section */}
+            {((currentUser?.role === 'manager' || currentUser?.role === 'admin') || (idea && (idea.managerComment || (idea.managerComments && idea.managerComments.length > 0)))) && (
+              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                  Manager Comments
+                </h3>
+
+                {/* Show existing manager comment thread */}
+                {(() => {
+                  const allComments: Array<{id: string; comment: string; authorName: string; createdAt: string}> = [];
+                  // Legacy single comment
+                  if (idea.managerComment) {
+                    allComments.push({
+                      id: 'legacy',
+                      comment: idea.managerComment,
+                      authorName: 'Manager',
+                      createdAt: idea.createdAt,
+                    });
+                  }
+                  // New thread comments
+                  if (idea.managerComments && idea.managerComments.length > 0) {
+                    idea.managerComments.forEach(mc => allComments.push({ id: mc.id, comment: mc.comment, authorName: mc.authorName, createdAt: mc.createdAt }));
+                  }
+                  return allComments.length > 0 ? (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {allComments.map((mc) => (
+                        <div key={mc.id} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3 space-y-1">
+                          <div className="flex items-center justify-between text-[10px] font-semibold">
+                            <span className="text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                              {mc.authorName}
+                            </span>
+                            <span className="text-slate-400">{new Date(mc.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{mc.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic text-center py-2">No manager comments yet.</p>
+                  );
+                })()}
+
+                {/* Post new comment - manager/admin only */}
+                {(currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
+                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <textarea
+                      value={newManagerCommentText}
+                      onChange={(e) => setNewManagerCommentText(e.target.value)}
+                      placeholder="Post a manager comment (cannot be edited or deleted)..."
+                      maxLength={2000}
+                      className="w-full h-24 px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 font-semibold">{newManagerCommentText.length}/2000</span>
+                      <button
+                        onClick={async () => {
+                          if (!newManagerCommentText.trim() || !currentUser || !idea) return;
+                          setPostingManagerComment(true);
+                          try {
+                            const res = await fetch(`/api/ideas/${idea.id}/manager-comments`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+                              body: JSON.stringify({ comment: newManagerCommentText.trim() }),
+                            });
+                            if (res.ok) {
+                              setNewManagerCommentText('');
+                              await fetchIdeaDetails();
+                            }
+                          } catch (e) { console.error(e); }
+                          finally { setPostingManagerComment(false); }
+                        }}
+                        disabled={postingManagerComment || !newManagerCommentText.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      >
+                        {postingManagerComment ? (
+                          <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Posting...</>
+                        ) : (
+                          <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>Post Comment</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Role-Based Manager Approval & Reject Panel */}
             {(currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
               <div className="bg-white dark:bg-slate-950 border border-amber-500/20 bg-amber-500/[0.01] p-6 rounded-2xl space-y-4 shadow-sm">
@@ -1650,95 +1740,6 @@ export default function IdeaDetailsPage() {
               </div>
             )}
 
-            {/* Manager Comments Section */}
-            {((currentUser?.role === 'manager' || currentUser?.role === 'admin') || (idea && idea.managerComment)) && (
-              <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-4 shadow-sm">
-                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                  </svg>
-                  Manager Comments
-                </h3>
-
-                {/* Show existing manager comment thread */}
-                {(() => {
-                  const allComments: Array<{id: string; comment: string; authorName: string; createdAt: string}> = [];
-                  // Legacy single comment
-                  if (idea.managerComment) {
-                    allComments.push({
-                      id: 'legacy',
-                      comment: idea.managerComment,
-                      authorName: 'Manager',
-                      createdAt: idea.createdAt,
-                    });
-                  }
-                  // New thread comments
-                  if (idea.managerComments && idea.managerComments.length > 0) {
-                    idea.managerComments.forEach(mc => allComments.push({ id: mc.id, comment: mc.comment, authorName: mc.authorName, createdAt: mc.createdAt }));
-                  }
-                  return allComments.length > 0 ? (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {allComments.map((mc) => (
-                        <div key={mc.id} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-100 dark:border-slate-800 rounded-xl p-3 space-y-1">
-                          <div className="flex items-center justify-between text-[10px] font-semibold">
-                            <span className="text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                              {mc.authorName}
-                            </span>
-                            <span className="text-slate-400">{new Date(mc.createdAt).toLocaleString()}</span>
-                          </div>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{mc.comment}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-400 italic text-center py-2">No manager comments yet.</p>
-                  );
-                })()}
-
-                {/* Post new comment - manager/admin only */}
-                {(currentUser?.role === 'manager' || currentUser?.role === 'admin') && (
-                  <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <textarea
-                      value={newManagerCommentText}
-                      onChange={(e) => setNewManagerCommentText(e.target.value)}
-                      placeholder="Post a manager comment (cannot be edited or deleted)..."
-                      maxLength={2000}
-                      className="w-full h-24 px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all resize-none"
-                    />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 font-semibold">{newManagerCommentText.length}/2000</span>
-                      <button
-                        onClick={async () => {
-                          if (!newManagerCommentText.trim() || !currentUser || !idea) return;
-                          setPostingManagerComment(true);
-                          try {
-                            const res = await fetch(`/api/ideas/${idea.id}/manager-comments`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
-                              body: JSON.stringify({ comment: newManagerCommentText.trim() }),
-                            });
-                            if (res.ok) {
-                              setNewManagerCommentText('');
-                              await fetchIdeaDetails();
-                            }
-                          } catch (e) { console.error(e); }
-                          finally { setPostingManagerComment(false); }
-                        }}
-                        disabled={postingManagerComment || !newManagerCommentText.trim()}
-                        className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5"
-                      >
-                        {postingManagerComment ? (
-                          <><svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>Posting...</>
-                        ) : (
-                          <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>Post Comment</>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
