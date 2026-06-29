@@ -1716,7 +1716,7 @@ export default function IdeaDetailsPage() {
                             const res = await fetch(`/api/ideas/${idea.id}/manager-comments`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
-                              body: JSON.stringify({ text: newManagerCommentText.trim() }),
+                              body: JSON.stringify({ comment: newManagerCommentText.trim() }),
                             });
                             if (res.ok) {
                               setNewManagerCommentText('');
