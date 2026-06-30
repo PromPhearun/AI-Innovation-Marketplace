@@ -659,8 +659,28 @@ export default function AgentLoopPanel({
           )
         )}
 
+        {/* EXECUTION FAULT — EXACT ERROR DISPLAY */}
+        {status?.status === 'failed' && status?.error && (
+          <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-700/60 p-4 rounded-xl flex items-start gap-3 text-xs shadow-sm animate-fade-in">
+            <span className="text-lg mt-0.5 shrink-0">❌</span>
+            <div className="space-y-1.5 text-rose-800 dark:text-rose-300 min-w-0 flex-1">
+              <strong className="font-extrabold uppercase tracking-wide text-[11px] block">
+                Execution Fault — Exact Error
+              </strong>
+              <pre className="whitespace-pre-wrap break-words font-mono text-[11px] bg-rose-100/60 dark:bg-rose-900/30 p-2.5 rounded-lg border border-rose-200 dark:border-rose-800/50 leading-relaxed">
+                {status.error}
+              </pre>
+              <p className="text-rose-600/80 dark:text-rose-400/80 text-[10px]">
+                The loop halted because the AI call failed. Common causes: the LLM endpoint timed out / was unreachable,
+                an invalid API key (401), or a WAF/proxy block (403). Review the full trace in the Live TTY Buffer below, then re-run.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* PROGRESS METER */}
         {status?.status === 'running' && (
+
           <div className="space-y-2 animate-pulse">
             <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
               <span>Builder-Critic Consensus Cycle Progress</span>

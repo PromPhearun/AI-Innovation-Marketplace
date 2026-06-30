@@ -20,8 +20,65 @@ export function validateWorkspaceFilePath(filename: string): boolean {
   return /^[a-zA-Z0-9_\-\.\/]+$/.test(filename);
 }
 
+// Build a rich, human-readable description of an error thrown by the OpenAI SDK
+// (or the underlying fetch). The default `error.message` is often opaque
+// ("aborted", "fetch failed"), so we surface the HTTP status, status text,
+// API error body, and timeout/abort condition where available. This is what the
+// user sees in the Live TTY Buffer and the failure banner, so it must be precise.
+export function describeAiError(err: unknown): string {
+  // Timeout / abort coming from AbortSignal.timeout()
+  if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+    return `Request timed out / aborted after the configured limit (the LLM endpoint did not respond in time). [${err.name}]`;
+  }
+
+  const anyErr = err as {
+    status?: number;
+    statusText?: string;
+    code?: string;
+    message?: string;
+    error?: { message?: string; type?: string; code?: string };
+    response?: { status?: number; statusText?: string; data?: unknown };
+    cause?: { code?: string; message?: string };
+  };
+
+  const parts: string[] = [];
+
+  const httpStatus = anyErr?.status ?? anyErr?.response?.status;
+  if (typeof httpStatus === 'number') {
+    parts.push(`HTTP ${httpStatus}${anyErr?.statusText ? ` ${anyErr.statusText}` : ''}`);
+  }
+
+  // API error body (OpenAI/LiteLLM style)
+  const apiMessage = anyErr?.error?.message;
+  if (apiMessage) {
+    parts.push(apiMessage);
+  } else if (anyErr?.response?.data) {
+    try {
+      parts.push(typeof anyErr.response.data === 'string'
+        ? anyErr.response.data
+        : JSON.stringify(anyErr.response.data));
+    } catch {}
+  }
+
+  // Network-level cause (DNS, connection refused, TLS, WAF, etc.)
+  const causeCode = anyErr?.cause?.code || anyErr?.code;
+  if (causeCode) {
+    parts.push(`(network: ${causeCode})`);
+  }
+
+  // Fall back to the generic message if nothing more specific was captured
+  if (parts.length === 0) {
+    parts.push(anyErr?.message || (err instanceof Error ? err.message : String(err)) || 'Unknown error');
+  } else if (anyErr?.message && !parts.join(' ').includes(anyErr.message)) {
+    parts.push(`— ${anyErr.message}`);
+  }
+
+  return parts.join(' ').trim();
+}
+
 // Recursively list all files in a directory excluding common ignore paths
 export function getFilesRecursively(dir: string, baseDir: string = dir): { relativePath: string; absolutePath: string }[] {
+
   let results: { relativePath: string; absolutePath: string }[] = [];
   if (!fs.existsSync(dir)) return results;
   try {
@@ -790,6 +847,10 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
 
   let builderResponse;
   try {
+    // Cap the call at 270s so it fails gracefully *inside* the function with a
+    // real error, instead of being silently hard-killed by Vercel's 300s
+    // maxDuration (which would freeze the loop at "drafting updates…" forever).
+    const builderAbort = AbortSignal.timeout(270_000);
     builderResponse = await openai.chat.completions.create({
       model: MODEL_NAME,
       messages: [
@@ -797,10 +858,9 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         { role: 'user', content: builderPrompt }
       ],
       temperature: 0.2
-    });
+    }, { signal: builderAbort });
   } catch (err: unknown) {
-    const error = err as Error;
-    const errMsg = error?.message || String(err);
+    const errMsg = describeAiError(err);
     appendLog(ideaId, `❌ Builder AI call failed: ${errMsg}`);
     appendLog(ideaId, '⏹️ Halting iteration — the Critic will not run until the Builder succeeds. Check server logs for the full error.');
     status.status = 'failed';
@@ -808,6 +868,7 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
     await saveAgentLoopStatus(ideaId, status);
     return;
   }
+
 
   const builderText = builderResponse.choices[0]?.message?.content || '';
   const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
@@ -884,9 +945,9 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
       temperature: 0.1
     }, { signal: criticAbort });
   } catch (err: unknown) {
-    const error = err as Error;
-    const errMsg = error?.message || String(err);
+    const errMsg = describeAiError(err);
     appendLog(ideaId, `❌ Critic AI call failed: ${errMsg}`);
+
     appendLog(ideaId, '⏹️ Halting iteration — consensus could not be evaluated. Check server logs for the full error.');
     status.status = 'failed';
     status.error = `Critic AI failed: ${errMsg}`;
