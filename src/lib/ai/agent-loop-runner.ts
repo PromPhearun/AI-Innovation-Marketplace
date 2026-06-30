@@ -430,16 +430,33 @@ export async function writeWorkspaceFile(ideaId: string, filename: string, conte
     console.warn(`Local filesystem write skipped/failed for ${filename}:`, e);
   }
 
-  // 3. Keep loop status updated in Firestore
-  const status = await getAgentLoopStatus(ideaId);
-  if (!status.filesCreated.includes(filename)) {
-    status.filesCreated.push(filename);
+  // 3. Keep loop status updated — directly mutate the in-memory cache first to
+  //    avoid a round-trip getAgentLoopStatus() call that can race or return stale
+  //    data (especially important for prompthistory.md whose content drives the
+  //    UI's "Self-Consensus Audit History" section and the consensusReached flag).
+  if (!agentLoops[ideaId]) {
+    // Ensure a baseline entry exists if this is the very first write
+    agentLoops[ideaId] = {
+      ideaId,
+      status: 'running',
+      iteration: 0,
+      maxIterations: 5,
+      logs: [],
+      ideOpened: false,
+      filesCreated: [],
+      history: '',
+      consensusReached: false,
+    };
+  }
+  const cachedStatus = agentLoops[ideaId];
+  if (!cachedStatus.filesCreated.includes(filename)) {
+    cachedStatus.filesCreated.push(filename);
   }
   if (filename === 'prompthistory.md') {
-    status.history = content;
-    status.consensusReached = content.includes('STATUS: APPROVED');
+    cachedStatus.history = content;
+    cachedStatus.consensusReached = content.includes('STATUS: APPROVED');
   }
-  await saveAgentLoopStatus(ideaId, status);
+  await saveAgentLoopStatus(ideaId, cachedStatus);
 }
 
 // Asynchronously reads a file from Firebase Storage if configured, with local filesystem fallback
@@ -905,6 +922,17 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
     return status;
   }
 
+  // Cross-process kill switch: check for kill.lock file written by stopAgentLoop
+  // (abortControllers only works within the same Node.js process; on Vercel each
+  //  request lands in a different worker so we need this file-based fallback).
+  const killLockPath = path.join(getWorkspacePath(ideaId), 'kill.lock');
+  if (fs.existsSync(killLockPath)) {
+    appendLog(ideaId, '🛑 Kill lock detected. Agent Loop stopped by user.');
+    status.status = 'stopped';
+    await saveAgentLoopStatus(ideaId, status);
+    return status;
+  }
+
   // Check abort
   if (abortControllers[ideaId]) {
     appendLog(ideaId, '🛑 Agent Loop execution stopped by user.');
@@ -939,7 +967,12 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
  */
 async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise<void> {
   const workspacePath = getWorkspaceBase() + '/' + ideaId;
-  const currentFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  // Bug fix: use the in-memory/Firestore file list when Firebase is configured so
+  // the Builder gets file context even when there is no local filesystem (cloud/Vercel).
+  const currentStatus = await getAgentLoopStatus(ideaId);
+  const currentFiles = isFirebaseConfigured
+    ? currentStatus.filesCreated
+    : getFilesRecursively(workspacePath).map(f => f.relativePath);
   const filesToSupply = currentFiles.filter(rel =>
     !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
     rel !== 'agent_loop.js' && rel !== 'kill.lock' &&
@@ -1036,7 +1069,12 @@ async function executeCriticIteration(
 ): Promise<void> {
   appendLog(ideaId, '🕵️ Persona B (The Critic) is auditing files...');
 
-  const updatedFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  // Bug fix: use in-memory/Firestore file list when Firebase is configured so the
+  // Critic gets full file context even when there is no local filesystem (cloud/Vercel).
+  const criticStatusData = await getAgentLoopStatus(ideaId);
+  const updatedFiles = isFirebaseConfigured
+    ? criticStatusData.filesCreated
+    : getFilesRecursively(workspacePath).map(f => f.relativePath);
   const criticFilesToSupply = updatedFiles.filter(rel =>
     !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
     rel !== 'agent_loop.js' && rel !== 'kill.lock' &&

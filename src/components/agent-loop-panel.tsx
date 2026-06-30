@@ -92,6 +92,12 @@ export default function AgentLoopPanel({
     }
     if (pollingActive && !isActionLoading) {
       const timer = setTimeout(async () => {
+        // Guard: if status was updated to stopped/completed while we were waiting,
+        // abort the timer before firing an unnecessary iterate call.
+        if (!status || status.status !== 'running') {
+          setPollingActive(false);
+          return;
+        }
         try {
           setIsActionLoading(true);
           const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
