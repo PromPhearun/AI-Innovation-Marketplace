@@ -42,3 +42,4 @@ next-env.d.ts
 
 # local agent workspaces
 /agent_workspace/
+src/app/.!*!favicon.ico
