@@ -4,8 +4,9 @@ import path from 'path';
 import { exec, execSync } from 'child_process';
 import os from 'os';
 import { db, storage, isFirebaseConfigured } from '@/lib/firebase/config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getBytes } from 'firebase/storage';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getBytes, listAll, deleteObject } from 'firebase/storage';
+
 
 // Security: Validate that the ideaId is strictly alphanumeric/dashes/underscores to prevent Path Traversal or Command Injection
 export function validateId(id: string): boolean {
@@ -65,6 +66,22 @@ export function describeAiError(err: unknown): string {
   if (causeCode) {
     parts.push(`(network: ${causeCode})`);
   }
+
+  // Detect a Cloudflare / WAF block (very common when the LLM endpoint rejects
+  // the hosting server's egress IP). The HTML body contains tell-tale markers.
+  const blob = `${apiMessage ?? ''} ${anyErr?.message ?? ''} ${
+    typeof anyErr?.response?.data === 'string' ? anyErr.response.data : ''
+  }`;
+  if (
+    httpStatus === 403 &&
+    (/cloudflare/i.test(blob) || /you have been blocked/i.test(blob) || /Attention Required/i.test(blob))
+  ) {
+    parts.push(
+      '— This is a Cloudflare/WAF block (HTTP 403): the AI endpoint refused this server\'s IP. ' +
+      'The hosting environment\'s egress IP likely needs to be allowlisted on the LLM endpoint (e.g. litellmsa.deriv.ai).'
+    );
+  }
+
 
   // Fall back to the generic message if nothing more specific was captured
   if (parts.length === 0) {
@@ -159,6 +176,65 @@ export function getWorkspacePath(ideaId: string): string {
   const folderName = ideaId.startsWith('idea_') ? ideaId : `idea_${ideaId}`;
   return path.join(WORKSPACE_BASE, folderName);
 }
+
+// Recursively delete a directory (Node 14+ has fs.rmSync with recursive)
+function removeDirRecursive(dir: string): void {
+  try {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  } catch (e) {
+    console.warn(`Failed to remove workspace directory ${dir}:`, e);
+  }
+}
+
+/**
+ * Completely wipe all persisted state and workspace artifacts for an idea so a
+ * brand-new "Launch Spec Engine" run truly starts from scratch. This clears:
+ *   1. The in-memory status cache + abort flag
+ *   2. The Firestore agentLoops/{ideaId} document
+ *   3. All Firebase Storage files under ideas/{ideaId}/agent_workspace/
+ *   4. The local workspace directory on disk
+ */
+export async function clearAgentLoopWorkspace(ideaId: string): Promise<void> {
+  if (!validateId(ideaId)) {
+    throw new Error('Invalid Idea ID format');
+  }
+
+  // 1. In-memory cache + abort flag
+  delete agentLoops[ideaId];
+  delete abortControllers[ideaId];
+  delete executionPromises[ideaId];
+
+  // 2. Firestore status document
+  if (isFirebaseConfigured && db) {
+    try {
+      await deleteDoc(doc(db, 'agentLoops', ideaId));
+    } catch (e) {
+      console.warn(`Failed to delete Firestore agentLoops doc for ${ideaId}:`, e);
+    }
+  }
+
+  // 3. Firebase Storage workspace files
+  if (isFirebaseConfigured && storage) {
+    try {
+      const dirRef = ref(storage, `ideas/${ideaId}/agent_workspace`);
+      const listing = await listAll(dirRef);
+      // Delete files at this level and recurse one level into subfolders
+      await Promise.all(listing.items.map(item => deleteObject(item).catch(() => {})));
+      for (const prefix of listing.prefixes) {
+        const sub = await listAll(prefix);
+        await Promise.all(sub.items.map(item => deleteObject(item).catch(() => {})));
+      }
+    } catch (e) {
+      console.warn(`Failed to clear Firebase Storage workspace for ${ideaId}:`, e);
+    }
+  }
+
+  // 4. Local workspace directory
+  removeDirRecursive(getWorkspacePath(ideaId));
+}
+
 
 // Helper to save Agent Loop Status (caches in memory and, if firebase is configured, saves to Firestore)
 export async function saveAgentLoopStatus(ideaId: string, status: LoopStatus): Promise<void> {
@@ -1091,8 +1167,17 @@ export async function runAgentLoop(
   // a race condition that pollutes the persisted state with the kill-switch message)
   abortControllers[ideaId] = false;
 
+  // Fresh launch (not a resume): wipe ALL previous state and workspace artifacts
+  // so the run truly starts from scratch. A previous unfinished/failed run must
+  // not leave behind stale status, files, or audit history.
+  if (!resume) {
+    await clearAgentLoopWorkspace(ideaId);
+    abortControllers[ideaId] = false;
+  }
+
   // Remove any stale kill.lock from previous runs
   const workspacePath = getWorkspacePath(ideaId);
+
   const killLockPath = path.join(workspacePath, 'kill.lock');
   if (fs.existsSync(killLockPath)) {
     try {
