@@ -98,6 +98,9 @@ export default function AgentLoopPanel({
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'iterate' }),
+            // Use a 295s client timeout — just under Vercel's 300s maxDuration —
+            // so we always get a controlled response rather than a silent browser abort
+            signal: AbortSignal.timeout(295_000),
           });
           if (res.ok) {
             const data = await res.json();
@@ -108,10 +111,41 @@ export default function AgentLoopPanel({
               setPollingActive(false);
             }
           } else {
+            // Non-2xx response (e.g. Vercel 504 gateway timeout): the iteration
+            // may have started but we lost the response. Re-fetch status so we
+            // can see what actually happened before deciding to stop.
+            console.warn('Auto-iteration got non-ok response, re-fetching status…', res.status);
+            try {
+              const statusRes = await fetch(`/api/ideas/${ideaId}/agent-loop`);
+              if (statusRes.ok) {
+                const statusData = await statusRes.json();
+                setStatus(statusData);
+                // If the server still thinks it's running, keep looping
+                if (statusData.status === 'running' && statusData.iteration < statusData.maxIterations) {
+                  return; // pollingActive stays true, next tick will retry
+                }
+              }
+            } catch {
+              // status fetch also failed — network is down, stop cleanly
+            }
             setPollingActive(false);
           }
         } catch (err) {
-          console.error('Auto-iteration failed:', err);
+          // Network error or AbortError (client-side timeout): re-fetch status
+          // before giving up so a brief connectivity blip doesn't kill the loop
+          console.error('Auto-iteration fetch failed:', err);
+          try {
+            const statusRes = await fetch(`/api/ideas/${ideaId}/agent-loop`);
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              setStatus(statusData);
+              if (statusData.status === 'running' && statusData.iteration < statusData.maxIterations) {
+                return; // keep the loop alive
+              }
+            }
+          } catch {
+            // ignore secondary failure
+          }
           setPollingActive(false);
         } finally {
           setIsActionLoading(false);

@@ -533,11 +533,12 @@ Analyze the goals, create a complete folder structure, write package.json, src f
     appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
 
     try {
+      const devAbort = AbortSignal.timeout(270_000);
       const devResponse = await openai.chat.completions.create({
         model: MODEL_NAME,
         messages: devHistory,
         temperature: 0.3
-      });
+      }, { signal: devAbort });
 
       const devText = devResponse.choices[0]?.message?.content || '';
       devHistory.push({ role: 'assistant', content: devText });
@@ -652,6 +653,7 @@ ${devErrorLog || 'No build errors.'}
 If the project is completely implemented, is fully functional, has absolutely no errors, has zero placeholders/TODOs, and is ready for production, output the exact phrase: "STATUS: VERIFIED"
 Otherwise, list the remaining issues, missing features, or bugs that the AI Developer must resolve in the next iteration. Be constructive and highly specific.`;
 
+      const verifierAbort = AbortSignal.timeout(270_000);
       const verifierResponse = await openai.chat.completions.create({
         model: MODEL_NAME,
         messages: [
@@ -659,7 +661,7 @@ Otherwise, list the remaining issues, missing features, or bugs that the AI Deve
           { role: 'user', content: verifierPrompt }
         ],
         temperature: 0.1
-      });
+      }, { signal: verifierAbort });
 
       const verifierText = verifierResponse.choices[0]?.message?.content || '';
       appendLog(ideaId, `🕵️ QA Verifier Audit completed.`);
@@ -703,6 +705,18 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
   if (!validateId(ideaId)) throw new Error('Invalid Idea ID format');
 
   const status = await getAgentLoopStatus(ideaId);
+
+  // If a previous iteration was cut off by a serverless timeout the status may
+  // be persisted as 'failed' even though the user never clicked Stop and there
+  // are iterations remaining.  Auto-heal it back to 'running' so the frontend
+  // loop can continue without requiring the user to hit "Run" again.
+  if (status && status.status === 'failed' && status.iteration < status.maxIterations) {
+    appendLog(ideaId, '⚠️ Previous iteration ended with a fault. Auto-recovering and retrying…');
+    status.status = 'running';
+    delete status.error;
+    await saveAgentLoopStatus(ideaId, status);
+  }
+
   if (!status || status.status !== 'running') {
     return status;
   }
@@ -860,6 +874,7 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
 
   let criticResponse;
   try {
+    const criticAbort = AbortSignal.timeout(270_000);
     criticResponse = await openai.chat.completions.create({
       model: MODEL_NAME,
       messages: [
@@ -867,7 +882,7 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
         { role: 'user', content: criticPrompt }
       ],
       temperature: 0.1
-    });
+    }, { signal: criticAbort });
   } catch (err: unknown) {
     const error = err as Error;
     const errMsg = error?.message || String(err);
