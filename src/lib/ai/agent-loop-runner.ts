@@ -251,6 +251,36 @@ export async function saveAgentLoopStatus(ideaId: string, status: LoopStatus): P
   }
 }
 
+// A persisted status is only worth restoring when opening the panel if it
+// represents something the user would want to keep:
+//   - a run that actually reached consensus (valuable approved specs), or
+//   - a run that is still actively executing (must not be interrupted).
+// Any other state (failed, stopped, or an incomplete/idle run that never
+// reached consensus) is stale error residue and should NOT be resurfaced —
+// the panel must start fresh instead of showing old .md files, error banners,
+// and Live TTY Buffer logs.
+function isRestorableStatus(status: LoopStatus | null | undefined): boolean {
+  if (!status) return false;
+  if (status.consensusReached === true) return true;
+  if (status.status === 'running') return true;
+  return false;
+}
+
+// Build a clean, fresh idle status with no stale files, logs, or errors.
+function buildFreshIdleStatus(ideaId: string): LoopStatus {
+  return {
+    ideaId,
+    status: 'idle',
+    iteration: 0,
+    maxIterations: 5,
+    logs: ['Agent Loop system initialized. Ready to launch.'],
+    ideOpened: false,
+    filesCreated: [],
+    history: '',
+    consensusReached: false,
+  };
+}
+
 // Synchronous fast getter of Agent Loop Status from memory cache
 export function getAgentLoopStatusSync(ideaId: string): LoopStatus {
   if (!validateId(ideaId)) {
@@ -307,8 +337,18 @@ export async function getAgentLoopStatus(ideaId: string): Promise<LoopStatus> {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data() as LoopStatus;
-        agentLoops[ideaId] = data;
-        return data;
+        // Only restore a previously-persisted run if it's worth keeping
+        // (consensus reached or still actively running). A stale failed/stopped/
+        // incomplete run must NOT resurface its error files, banner, or logs —
+        // wipe it and present a clean fresh slate instead.
+        if (isRestorableStatus(data)) {
+          agentLoops[ideaId] = data;
+          return data;
+        }
+        await clearAgentLoopWorkspace(ideaId);
+        const fresh = buildFreshIdleStatus(ideaId);
+        agentLoops[ideaId] = fresh;
+        return fresh;
       }
     } catch (e) {
       console.error('Error fetching loop status from Firestore:', e);
@@ -332,6 +372,17 @@ export async function getAgentLoopStatus(ideaId: string): Promise<LoopStatus> {
   }
 
   const consensusReached = history.includes('STATUS: APPROVED');
+
+  // If there are leftover workspace artifacts from a previous run that never
+  // reached consensus, they are stale error residue (old .md files, partial
+  // specs, failure logs). Don't resurface them — wipe the workspace and start
+  // from a clean, fresh slate so the panel opens with no errors or old files.
+  if (filesCreated.length > 0 && !consensusReached) {
+    await clearAgentLoopWorkspace(ideaId);
+    const fresh = buildFreshIdleStatus(ideaId);
+    agentLoops[ideaId] = fresh;
+    return fresh;
+  }
 
   const defaultStatus: LoopStatus = {
     ideaId,
