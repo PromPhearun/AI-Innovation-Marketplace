@@ -54,11 +54,16 @@ export default function AgentLoopPanel({
       if (res.ok) {
         const data: LoopStatus = await res.json();
         setStatus(data);
-        if (data.status === 'running') {
-          setPollingActive(true);
-        } else {
-          setPollingActive(false);
-        }
+      // Bug fix: Do NOT re-enable polling when we've already hit maxIterations,
+      // even if the backend still reports status='running' (can happen on a cold
+      // Vercel instance that hasn't yet received the 'completed' write from the
+      // last runAgentLoopIteration call). Without this guard the panel would
+      // keep triggering new iterate requests beyond the intended iteration cap.
+      if (data.status === 'running' && (data.iteration ?? 0) < (data.maxIterations ?? 5)) {
+        setPollingActive(true);
+      } else {
+        setPollingActive(false);
+      }
       }
     } catch (err) {
       console.error('Failed to fetch agent loop status:', err);

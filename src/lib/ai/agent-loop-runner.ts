@@ -133,6 +133,10 @@ export interface LoopStatus {
   // retries so a persistent error (bad API key, WAF block, wrong endpoint) is
   // surfaced to the user instead of looping forever.
   faultRetries?: number;
+  // In-Firestore file content map — used on Vercel (ephemeral filesystem) so
+  // workspace file contents survive across serverless cold-starts. Keyed by
+  // the relative file path (same values as filesCreated[]).
+  fileContents?: Record<string, string>;
 }
 
 // In-memory global store to hold loop statuses across API hot-reloads
@@ -468,6 +472,13 @@ export async function writeWorkspaceFile(ideaId: string, filename: string, conte
     cachedStatus.history = content;
     cachedStatus.consensusReached = content.includes('STATUS: APPROVED');
   }
+  // Store file content in the LoopStatus so it survives Vercel cold-starts.
+  // On serverless environments the local filesystem is ephemeral and lost between
+  // requests, so we persist every file's content directly in the Firestore doc.
+  if (!cachedStatus.fileContents) {
+    cachedStatus.fileContents = {};
+  }
+  cachedStatus.fileContents[filename] = content;
   await saveAgentLoopStatus(ideaId, cachedStatus);
 }
 
@@ -475,6 +486,32 @@ export async function writeWorkspaceFile(ideaId: string, filename: string, conte
 export async function readWorkspaceFile(ideaId: string, filename: string): Promise<string> {
   if (!validateId(ideaId) || !validateWorkspaceFilePath(filename)) {
     throw new Error(`Invalid file path format: ${filename}`);
+  }
+
+  // 0. In-memory / Firestore fileContents map — fastest path, survives Vercel cold-starts.
+  //    This is populated by writeWorkspaceFile() on every write, so it is always the
+  //    most up-to-date source of truth across serverless function instances.
+  const memStatus = agentLoops[ideaId];
+  if (memStatus?.fileContents?.[filename] !== undefined) {
+    return memStatus.fileContents[filename];
+  }
+
+  // If not in memory, try to load the Firestore-persisted status which also carries fileContents.
+  if (isFirebaseConfigured && db) {
+    try {
+      const docRef = doc(db, 'agentLoops', ideaId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as LoopStatus;
+        if (data?.fileContents?.[filename] !== undefined) {
+          // Warm the in-memory cache so subsequent reads in the same request are instant.
+          agentLoops[ideaId] = data;
+          return data.fileContents[filename];
+        }
+      }
+    } catch (e) {
+      console.warn(`Firestore fileContents read failed for ${filename}:`, e);
+    }
   }
 
   // 1. Read from Firebase Storage
@@ -982,7 +1019,26 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
   appendLog(ideaId, `🔄 Starting Iteration ${status.iteration} of ${status.maxIterations}`);
 
   await executeSpecIteration(ideaId, status);
-  return await getAgentLoopStatus(ideaId);
+
+  // Bug fix: After the final spec iteration completes without the Critic approving
+  // the spec, the status is still 'running' (Critic only sets 'completed' when it
+  // outputs "STATUS: APPROVED"). We must transition to 'completed' here so the
+  // panel stops firing new iterate requests. Without this, the panel's fetchStatus
+  // sees status='running' with iteration=maxIterations and keeps re-enabling polling,
+  // causing an infinite loop beyond the intended max iteration count.
+  const afterIterStatus = await getAgentLoopStatus(ideaId);
+  if (
+    afterIterStatus.status === 'running' &&
+    afterIterStatus.iteration >= afterIterStatus.maxIterations &&
+    !afterIterStatus.consensusReached
+  ) {
+    appendLog(ideaId, `🏁 Max iterations (${afterIterStatus.maxIterations}) reached without consensus. Spec engine loop complete.`);
+    afterIterStatus.status = 'completed';
+    await saveAgentLoopStatus(ideaId, afterIterStatus);
+    return afterIterStatus;
+  }
+
+  return afterIterStatus;
 }
 
 /**
