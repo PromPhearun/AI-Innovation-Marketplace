@@ -129,6 +129,10 @@ export interface LoopStatus {
   filesCreated: string[];
   history: string; // content of prompthistory.md
   consensusReached?: boolean;
+  // How many consecutive transient faults have occurred — used to cap auto-heal
+  // retries so a persistent error (bad API key, WAF block, wrong endpoint) is
+  // surfaced to the user instead of looping forever.
+  faultRetries?: number;
 }
 
 // In-memory global store to hold loop statuses across API hot-reloads
@@ -908,14 +912,25 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
   const status = await getAgentLoopStatus(ideaId);
 
   // If a previous iteration was cut off by a serverless timeout the status may
-  // be persisted as 'failed' even though the user never clicked Stop and there
-  // are iterations remaining.  Auto-heal it back to 'running' so the frontend
-  // loop can continue without requiring the user to hit "Run" again.
+  // be persisted as 'failed'. Auto-heal it back to 'running', but only up to
+  // MAX_FAULT_RETRIES times so a persistent error (bad key, WAF block, wrong
+  // endpoint) is surfaced to the user instead of looping forever.
+  const MAX_FAULT_RETRIES = 3;
   if (status && status.status === 'failed' && status.iteration < status.maxIterations) {
-    appendLog(ideaId, '⚠️ Previous iteration ended with a fault. Auto-recovering and retrying…');
-    status.status = 'running';
-    delete status.error;
-    await saveAgentLoopStatus(ideaId, status);
+    const retries = status.faultRetries ?? 0;
+    if (retries < MAX_FAULT_RETRIES) {
+      appendLog(ideaId, `⚠️ Previous iteration ended with a fault (retry ${retries + 1}/${MAX_FAULT_RETRIES}). Auto-recovering…`);
+      status.status = 'running';
+      status.faultRetries = retries + 1;
+      // Preserve status.error so it remains visible in the error banner while retrying
+      await saveAgentLoopStatus(ideaId, status);
+    } else {
+      // Exceeded retry cap — keep status as 'failed' and return so the error
+      // banner in the UI shows the exact error and stops the loop.
+      appendLog(ideaId, `❌ Auto-recovery limit (${MAX_FAULT_RETRIES}) reached. Stopping loop. Error: ${status.error || 'unknown'}`);
+      await saveAgentLoopStatus(ideaId, status);
+      return status;
+    }
   }
 
   if (!status || status.status !== 'running') {
@@ -1232,10 +1247,10 @@ RULES:
       await saveAgentLoopStatus(ideaId, status);
     }
   } catch (err: unknown) {
-    const error = err as Error;
-    appendLog(ideaId, `❌ Error in Developer iteration: ${error?.message || error}`);
+    const errMsg = describeAiError(err);
+    appendLog(ideaId, `❌ Error in Developer iteration: ${errMsg}`);
     status.status = 'failed';
-    status.error = error?.message || 'Unknown developer error';
+    status.error = `Developer AI failed: ${errMsg}`;
     await saveAgentLoopStatus(ideaId, status);
   }
 }
