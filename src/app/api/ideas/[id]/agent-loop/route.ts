@@ -30,6 +30,23 @@ export async function GET(
       if (!validateWorkspaceFilePath(file)) {
         return NextResponse.json({ error: 'Invalid file path format' }, { status: 400 });
       }
+      // Security: block serving sensitive files regardless of how the request was crafted.
+      // This is a defence-in-depth measure — the client-side panel already hides .env from
+      // the file list, but the API must independently enforce this to prevent direct URL access.
+      const basename = file.split('/').pop() || file;
+      const SENSITIVE_FILES = new Set(['.env', '.env.local', '.env.production', '.env.development', '.env.test']);
+      const isSensitive =
+        SENSITIVE_FILES.has(basename) ||
+        basename.startsWith('.env.') ||
+        basename.endsWith('.pem') ||
+        basename.endsWith('.key') ||
+        basename.endsWith('.secret');
+      if (isSensitive) {
+        return NextResponse.json(
+          { error: 'Access to this file is not permitted.' },
+          { status: 403 }
+        );
+      }
       const content = await readWorkspaceFile(id, file);
       return NextResponse.json({ file, content });
     }

@@ -529,7 +529,7 @@ export default function AgentLoopPanel({
                 type="button"
                 onClick={handleStopLoop}
                 disabled={isActionLoading}
-                className="w-full bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="w-full bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
                 Stop Loop (Manual Kill Switch)
@@ -566,7 +566,7 @@ export default function AgentLoopPanel({
                 type="button"
                 onClick={handleStartLoop}
                 disabled={isActionLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -774,7 +774,12 @@ export default function AgentLoopPanel({
 
           <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
             {status && status.filesCreated.length > 0 ? (
-              status.filesCreated.map((filename) => (
+              // Security: exclude sensitive files from the viewable file list.
+              // .env contains the API key and must never be displayed in the UI.
+              status.filesCreated.filter((f) => {
+                const base = f.split('/').pop() || f;
+                return base !== '.env' && base !== '.env.local' && !base.startsWith('.env.');
+              }).map((filename) => (
                 <button
                   key={filename}
                   type="button"

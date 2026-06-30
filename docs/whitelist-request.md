@@ -1,8 +1,13 @@
 # Request: Whitelist Vercel Egress IP on the LiteLLM Gateway (Cloudflare 403)
 
-> **Status:** Confirmed from live production logs on 2026-06-30.
-> The AI Agent Loop fails because Cloudflare's WAF blocks our Vercel server-side
-> egress IP when calling the AI gateway.
+> **Status: ✅ RESOLVED (2026-06-30)**
+> Infra provided Cloudflare Access service token credentials (`CF-Access-Client-Id` /
+> `CF-Access-Client-Secret`) and a dedicated external endpoint (`litellm-ext.deriv.ai`).
+> The app now sends these headers on every LLM request, bypassing the Cloudflare
+> Access policy without needing IP whitelisting.
+>
+> ~~The AI Agent Loop fails because Cloudflare's WAF blocks our Vercel server-side
+> egress IP when calling the AI gateway.~~
 
 ---
 
