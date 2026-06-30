@@ -315,10 +315,18 @@ export async function getAgentLoopStatus(ideaId: string): Promise<LoopStatus> {
     throw new Error('Invalid Idea ID format');
   }
 
-  // Fast path: memory cache
+  // Fast path: memory cache.
+  // IMPORTANT: When a run is actively in-progress (status === 'running'), always
+  // trust the in-memory cache over Firestore. The in-memory state is the source
+  // of truth during execution — writeWorkspaceFile() updates it synchronously
+  // before firing a background Firestore save. Re-fetching Firestore here would
+  // overwrite freshly-written file lists with a slightly-older persisted snapshot,
+  // causing the Builder/Critic to see an empty workspace even after scaffold writes.
   const existing = agentLoops[ideaId];
   if (existing) {
-    if (isFirebaseConfigured && db) {
+    // Only refresh from Firestore when the loop is idle/completed/stopped/failed
+    // (i.e., a different serverless instance may have updated it), NOT while running.
+    if (existing.status !== 'running' && isFirebaseConfigured && db) {
       try {
         const docRef = doc(db, 'agentLoops', ideaId);
         const docSnap = await getDoc(docRef);
@@ -981,7 +989,7 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
  * Execute one Builder + Critic spec iteration.
  */
 async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise<void> {
-  const workspacePath = getWorkspaceBase() + '/' + ideaId;
+  const workspacePath = getWorkspacePath(ideaId);
   // Bug fix: use the in-memory/Firestore file list when Firebase is configured so
   // the Builder gets file context even when there is no local filesystem (cloud/Vercel).
   const currentStatus = await getAgentLoopStatus(ideaId);
@@ -1173,8 +1181,12 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
 async function executeDeveloperLoopIteration(ideaId: string, status: LoopStatus): Promise<void> {
   appendLog(ideaId, `⚙️ Starting Developer Iteration ${status.iteration + 1} of ${status.maxIterations}...`);
 
-  const workspacePath = getWorkspaceBase() + '/' + ideaId;
-  const currentFiles = getFilesRecursively(workspacePath).map(f => f.relativePath);
+  const workspacePath = getWorkspacePath(ideaId);
+  // Use in-memory/Firestore file list when Firebase is configured (cloud/Vercel has no local FS)
+  const currentStatusData = await getAgentLoopStatus(ideaId);
+  const currentFiles = isFirebaseConfigured
+    ? currentStatusData.filesCreated
+    : getFilesRecursively(workspacePath).map(f => f.relativePath);
   const filesToSupply = currentFiles.filter(rel =>
     !rel.startsWith('.') && !rel.startsWith('node_modules/') &&
     rel !== 'agent_loop.js' && rel !== 'kill.lock'
