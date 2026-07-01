@@ -4,11 +4,123 @@ import React, { useState, useEffect } from 'react';
 import { LayoutWrapper } from '@/components/layout-wrapper';
 import { Idea } from '@/types';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/context/user-context';
+import { implementedAppSchema } from '@/utils/schemas';
 
 export default function ActiveAppsPage() {
   const router = useRouter();
+  const { currentUser } = useUser();
   const [implementedApps, setImplementedApps] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit App States
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+
+  // Edit Form States
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDepartment, setEditDepartment] = useState('engineering');
+  const [editCategory, setEditCategory] = useState('Process Optimization');
+  const [editSystemOwner, setEditSystemOwner] = useState('');
+  const [editBackupSystemOwner, setEditBackupSystemOwner] = useState('');
+  const [editSlackChannel, setEditSlackChannel] = useState('');
+  const [editMadeBy, setEditMadeBy] = useState<'Deriv' | 'Third Party'>('Deriv');
+  const [editImplementedAt, setEditImplementedAt] = useState('');
+
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
+  const [editSuccessMsg, setEditSuccessMsg] = useState('');
+
+  const handleOpenEditModal = (app: Idea) => {
+    setEditingAppId(app.id);
+    setEditTitle(app.title);
+    setEditDescription(app.appDescription || app.description);
+    setEditDepartment(app.department ? app.department.toLowerCase() : 'engineering');
+    setEditCategory(app.category || 'Process Optimization');
+    setEditSystemOwner(app.systemOwner || '');
+    setEditBackupSystemOwner(app.backupSystemOwner || '');
+    setEditSlackChannel(app.slackChannel || '');
+    setEditMadeBy(app.madeBy || 'Deriv');
+    setEditImplementedAt(app.implementedAt || new Date().toISOString().substring(0, 10));
+    setEditErrors({});
+    setEditSuccessMsg('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditErrors({});
+    setEditSuccessMsg('');
+
+    if (!editingAppId) return;
+
+    // Client-side Zod validation
+    const result = implementedAppSchema.safeParse({
+      title: editTitle,
+      description: editDescription,
+      department: editDepartment,
+      category: editCategory,
+      systemOwner: editSystemOwner,
+      backupSystemOwner: editBackupSystemOwner || undefined,
+      slackChannel: editSlackChannel,
+      implementedAt: editImplementedAt,
+      madeBy: editMadeBy,
+    });
+
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      const formatted = result.error.format();
+      if (formatted.title) errors.title = formatted.title._errors[0];
+      if (formatted.description) errors.description = formatted.description._errors[0];
+      if (formatted.department) errors.department = formatted.department._errors[0];
+      if (formatted.category) errors.category = formatted.category._errors[0];
+      if (formatted.systemOwner) errors.systemOwner = formatted.systemOwner._errors[0];
+      if (formatted.backupSystemOwner) errors.backupSystemOwner = formatted.backupSystemOwner._errors[0];
+      if (formatted.slackChannel) errors.slackChannel = formatted.slackChannel._errors[0];
+      if (formatted.implementedAt) errors.implementedAt = formatted.implementedAt._errors[0];
+      setEditErrors(errors);
+      return;
+    }
+
+    try {
+      setIsSubmittingEdit(true);
+
+      const res = await fetch('/api/implemented', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUser?.id || '',
+        },
+        body: JSON.stringify({
+          id: editingAppId,
+          ...result.data,
+          appDescription: editDescription,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        setEditErrors({ submit: errorData.error || 'Failed to update the implemented app' });
+        setIsSubmittingEdit(false);
+        return;
+      }
+
+      setEditSuccessMsg('App successfully updated!');
+      await fetchImplementedApps();
+
+      setTimeout(() => {
+        setIsEditModalOpen(false);
+        setEditingAppId(null);
+      }, 1000);
+
+    } catch (err) {
+      console.error('Error updating implemented app:', err);
+      setEditErrors({ submit: 'Network error updating details. Please try again.' });
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -376,7 +488,7 @@ export default function ActiveAppsPage() {
 
                 {/* Bottom line with Date and Graduation Badge */}
                 <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/60 pt-4 mt-5">
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {app.id.startsWith('manual_') ? (
                       <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md font-bold">
                         Manual Entry
@@ -385,6 +497,21 @@ export default function ActiveAppsPage() {
                       <span className="text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md font-bold">
                         Graduated Idea
                       </span>
+                    )}
+
+                    {currentUser?.role === 'admin' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEditModal(app);
+                        }}
+                        className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline font-bold px-2 py-0.5 border border-indigo-500/20 rounded-md bg-indigo-500/5 transition-all flex items-center gap-1"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Edit
+                      </button>
                     )}
                   </div>
 
@@ -402,6 +529,261 @@ export default function ActiveAppsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit App Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-scale-in">
+            <div className="p-6 border-b border-slate-100 dark:border-slate-900 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30">
+              <div>
+                <h2 className="text-xl font-bold text-slate-950 dark:text-white flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit Implemented App
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5">
+                  Modify active production registry info.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+              {editErrors.submit && (
+                <div className="p-4 bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs rounded-xl font-semibold animate-fade-in">
+                  {editErrors.submit}
+                </div>
+              )}
+
+              {editSuccessMsg && (
+                <div className="p-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs rounded-xl font-semibold animate-fade-in">
+                  {editSuccessMsg}
+                </div>
+              )}
+
+              {/* App Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                  App Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Deriv CRM Loyalty Portal"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className={`w-full bg-white dark:bg-slate-900 border ${
+                    editErrors.title ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                  } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all`}
+                />
+                {editErrors.title && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.title}</p>
+                )}
+              </div>
+
+              {/* Department & Category Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Department */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    Department
+                  </label>
+                  <select
+                    value={editDepartment}
+                    onChange={(e) => setEditDepartment(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                  >
+                    <option value="engineering">Engineering</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="operations">Operations</option>
+                    <option value="product">Product Management</option>
+                    <option value="hr">Human Resources</option>
+                  </select>
+                </div>
+
+                {/* Category */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    Category
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all font-medium"
+                  >
+                    <option value="Process Optimization">Process Optimization</option>
+                    <option value="Product Innovation">Product Innovation</option>
+                    <option value="Sustainability">Sustainability</option>
+                    <option value="Cost Reduction">Cost Reduction</option>
+                    <option value="Employee Engagement">Employee Engagement</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                  System Description & Purpose
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Describe what the system does, its technical stack, and who are the target users."
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className={`w-full bg-white dark:bg-slate-900 border ${
+                    editErrors.description ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                  } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 leading-relaxed`}
+                />
+                {editErrors.description && (
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.description}</p>
+                )}
+              </div>
+
+              {/* Ownership Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* System Owner */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    System Owner
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Sarah Chen"
+                    value={editSystemOwner}
+                    onChange={(e) => setEditSystemOwner(e.target.value)}
+                    className={`w-full bg-white dark:bg-slate-900 border ${
+                      editErrors.systemOwner ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                    } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all`}
+                  />
+                  {editErrors.systemOwner && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.systemOwner}</p>
+                  )}
+                </div>
+
+                {/* Backup Owner */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    Backup Owner
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={editBackupSystemOwner}
+                    onChange={(e) => setEditBackupSystemOwner(e.target.value)}
+                    className={`w-full bg-white dark:bg-slate-900 border ${
+                      editErrors.backupSystemOwner ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                    } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all`}
+                  />
+                  {editErrors.backupSystemOwner && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.backupSystemOwner}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Made By */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                  Made By
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditMadeBy('Deriv')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                      editMadeBy === 'Deriv'
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-500/20'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Deriv
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditMadeBy('Third Party')}
+                    className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                      editMadeBy === 'Third Party'
+                        ? 'bg-violet-600 border-violet-600 text-white shadow-md shadow-violet-500/20'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    Third Party
+                  </button>
+                </div>
+              </div>
+
+              {/* Slack & Date Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Slack Channel */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    Slack Channel
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. #support-loyalty-portal"
+                    value={editSlackChannel}
+                    onChange={(e) => setEditSlackChannel(e.target.value)}
+                    className={`w-full bg-white dark:bg-slate-900 border ${
+                      editErrors.slackChannel ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                    } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all`}
+                  />
+                  {editErrors.slackChannel && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.slackChannel}</p>
+                  )}
+                </div>
+
+                {/* Implementation Date */}
+                <div className="space-y-1.5">
+                  <label className="text-xs text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block">
+                    Implementation Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editImplementedAt}
+                    onChange={(e) => setEditImplementedAt(e.target.value)}
+                    className={`w-full bg-white dark:bg-slate-900 border ${
+                      editErrors.implementedAt ? 'border-rose-500' : 'border-slate-200 dark:border-slate-800'
+                    } rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500 transition-all`}
+                  />
+                  {editErrors.implementedAt && (
+                    <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{editErrors.implementedAt}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-900">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingEdit}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                >
+                  {isSubmittingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </LayoutWrapper>
   );
 }

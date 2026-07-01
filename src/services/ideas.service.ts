@@ -443,6 +443,54 @@ export const ideasService = {
     }
   },
 
+  async updateImplementedApp(
+    id: string,
+    updates: {
+      title: string;
+      description: string;
+      department: string;
+      category: string;
+      systemOwner: string;
+      backupSystemOwner?: string;
+      slackChannel: string;
+      implementedAt: string;
+      madeBy: 'Deriv' | 'Third Party';
+      appDescription?: string;
+    }
+  ): Promise<Idea | null> {
+    if (!isFirebaseConfigured) {
+      const updated = mockDB.updateImplementedApp(id, updates);
+      return updated || null;
+    }
+
+    try {
+      const docRef = doc(db, 'ideas', id);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) return null;
+
+      const updateData = {
+        title: updates.title,
+        description: updates.description,
+        department: updates.department,
+        category: updates.category,
+        systemOwner: updates.systemOwner,
+        backupSystemOwner: updates.backupSystemOwner ?? '',
+        slackChannel: updates.slackChannel,
+        implementedAt: updates.implementedAt,
+        madeBy: updates.madeBy,
+        appDescription: updates.appDescription ?? updates.description,
+      };
+
+      await updateDoc(docRef, updateData);
+      const updatedSnap = await getDoc(docRef);
+      return { id: updatedSnap.id, ...updatedSnap.data() } as Idea;
+    } catch (error) {
+      console.error('Error updating implemented app in Firestore:', error);
+      const updated = mockDB.updateImplementedApp(id, updates);
+      return updated || null;
+    }
+  },
+
   async deleteIdea(id: string): Promise<boolean> {
     if (!isFirebaseConfigured) {
       return mockDB.deleteIdea(id);

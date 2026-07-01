@@ -442,6 +442,38 @@ class MockDB {
     return idea;
   }
 
+  updateImplementedApp(
+    id: string,
+    updates: {
+      title: string;
+      description: string;
+      department: string;
+      category: string;
+      systemOwner: string;
+      backupSystemOwner?: string;
+      slackChannel: string;
+      implementedAt: string;
+      madeBy: 'Deriv' | 'Third Party';
+      appDescription?: string;
+    }
+  ): Idea | undefined {
+    const idea = this.ideas.find(i => i.id === id);
+    if (idea) {
+      idea.title = updates.title;
+      idea.description = updates.description;
+      idea.department = updates.department;
+      idea.category = updates.category;
+      idea.systemOwner = updates.systemOwner;
+      idea.backupSystemOwner = updates.backupSystemOwner ?? '';
+      idea.slackChannel = updates.slackChannel;
+      idea.implementedAt = updates.implementedAt;
+      idea.madeBy = updates.madeBy;
+      idea.appDescription = updates.appDescription ?? updates.description;
+      this.saveToStorage();
+    }
+    return idea;
+  }
+
   addManagerComment(ideaId: string, comment: ManagerComment): Idea | undefined {
     const idea = this.ideas.find(i => i.id === ideaId);
     if (idea) {
