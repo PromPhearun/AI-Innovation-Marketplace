@@ -1274,8 +1274,9 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
     appendLog(ideaId, '🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.');
     status.status = 'completed';
     status.consensusReached = true;
-    await saveAgentLoopStatus(ideaId, status);
 
+    // Write .clinerules BEFORE saving consensus status so it is guaranteed
+    // to be in fileContents when saveAgentLoopStatus persists to Firestore.
     const clinerulesContent = `# Cline Project Implementation Rules\n\nThe specifications for this project have been officially APPROVED by the Critic AI!\n\nYour task is to automatically build out the complete codebase inside this workspace to implement the project described in \`goal.md\` using the approved requirements (\`requirements.md\`) and architecture (\`architecture.md\`).\n\n## 🛠️ Step-by-Step Implementation Instructions\n1. Analyze \`goal.md\`, \`requirements.md\`, and \`architecture.md\` carefully.\n2. Initialize the project (e.g., configure \`package.json\`, set up folders).\n3. Write fully complete, production-ready, highly secure code for all components.\n4. Ensure there are absolutely no placeholders or TODO comments.\n5. Create a verification script or run tests to confirm everything builds and runs perfectly.\n`;
     try {
       await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
@@ -1451,17 +1452,19 @@ export async function runAgentLoop(
   await saveAgentLoopStatus(ideaId, status);
 
   if (existing && resume) {
-    appendLog(ideaId, `🔄 Resuming Agent Loop. Extending execution by 5 cycles (New Max Cycles: ${maxIterations}).`);
+    appendLog(ideaId, `🔄 Resuming Agent Loop. Extending execution by 5 loops (New Max Loops: ${maxIterations}).`);
   } else {
     appendLog(ideaId, `🏁 Initiating AI Agent Loop for project: "${ideaTitle}"`);
   }
 
-  // Generate .clinerules if consensus was already reached previously
+  // Re-generate .clinerules if consensus was already reached in a previous run.
+  // Always (re-)write it — do not guard with workspaceFileExists — so the file
+  // is guaranteed to be present in fileContents even after a Vercel cold-start
+  // that wiped the ephemeral in-memory state.
   const isAlreadyApproved = (await readWorkspaceFile(ideaId, 'prompthistory.md')).includes('STATUS: APPROVED');
   if (isAlreadyApproved) {
     status.consensusReached = true;
-    if (!(await workspaceFileExists(ideaId, '.clinerules'))) {
-      const clinerulesContent = `# Cline Project Implementation Rules
+    const clinerulesContent = `# Cline Project Implementation Rules
 
 The specifications for this project have been officially APPROVED by the Critic AI!
 
@@ -1474,11 +1477,13 @@ Your task is to automatically build out the complete codebase inside this worksp
 4. Ensure there are absolutely no placeholders or TODO comments.
 5. Create a verification script or run tests to confirm everything builds and runs perfectly.
 `;
-      try {
-        await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
-        appendLog(ideaId, `📄 Generated .clinerules for Cline integration!`);
-      } catch {}
+    try {
+      await writeWorkspaceFile(ideaId, '.clinerules', clinerulesContent);
+      appendLog(ideaId, `📄 Re-generated .clinerules for Cline integration (consensus was already approved).`);
+    } catch (e) {
+      appendLog(ideaId, `⚠️ Failed to re-generate .clinerules: ${e instanceof Error ? e.message : e}`);
     }
+    await saveAgentLoopStatus(ideaId, status);
   }
 
   // Generate .vscode/tasks.json for seamless hands-free launch in VS Code/Cursor

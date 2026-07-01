@@ -576,7 +576,7 @@ export default function AgentLoopPanel({
     status.iteration > 0
   );
   const buttonText = isRunBefore 
-    ? 'Run Spec Engine for 5 More Cycles' 
+    ? 'Run Spec Engine for 5 More Loops' 
     : 'Launch Spec Engine & Open IDE';
 
   const displayFolderName = ideaId.startsWith('idea_') ? ideaId : `idea_${ideaId}`;
@@ -837,7 +837,7 @@ export default function AgentLoopPanel({
 
           <div className="space-y-2 animate-pulse">
             <div className="flex justify-between text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
-              <span>Builder-Critic Consensus Cycle Progress</span>
+              <span>Builder-Critic Consensus Loop Progress</span>
               <span>Iteration {status.iteration} of {status.maxIterations}</span>
             </div>
             <div className="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
