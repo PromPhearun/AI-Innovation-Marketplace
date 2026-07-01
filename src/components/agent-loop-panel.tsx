@@ -758,83 +758,65 @@ export default function AgentLoopPanel({
         </div>
 
         {/* DYNAMIC TIP / INTEGRATION CARD */}
-        {status && status.status !== 'idle' && (
-          status.consensusReached ? (
-            <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 p-5 rounded-xl text-xs leading-relaxed text-emerald-800 dark:text-emerald-200/90 shadow-sm animate-fade-in space-y-4">
-              {/* Header */}
-              <div className="flex items-start gap-3">
-                <span className="text-base mt-0.5 select-none shrink-0">🎉</span>
-                <div className="space-y-0.5">
-                  <strong className="font-extrabold uppercase tracking-wide text-[11px] text-emerald-900 dark:text-emerald-300 block">
-                    Workspace Generated &amp; Auto-Downloaded
-                  </strong>
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">
-                    The workspace archive has been automatically downloaded. If the download didn&apos;t start, use the Download button above.
-                  </p>
-                </div>
-              </div>
-
-              <hr className="border-emerald-200 dark:border-emerald-800/40" />
-
-              {/* Agentic Coding section */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm select-none">⚡</span>
-                  <strong className="font-extrabold uppercase tracking-wide text-[10px] text-emerald-900 dark:text-emerald-300">
-                    Agentic Coding (Recommended)
-                  </strong>
-                </div>
-                <p>
-                  If you use an agentic AI coding tool, simply open this workspace in{' '}
-                  <strong>{selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}</strong>,
-                  launch your agentic tool such as <strong>Cline</strong> or <strong>Claude Code</strong>, and say:
-                </p>
-                <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-3 rounded-lg border border-slate-800 shadow-inner">
-                  <span className="text-emerald-400">&quot;Build this project based on the approved specifications and .clinerules&quot;</span>
-                </div>
-              </div>
-
-              <hr className="border-emerald-200 dark:border-emerald-800/40" />
-
-              {/* Manual Steps section */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm select-none">📋</span>
-                  <strong className="font-extrabold uppercase tracking-wide text-[10px] text-emerald-900 dark:text-emerald-300">
-                    Manual Steps
-                  </strong>
-                </div>
-                <ol className="list-decimal pl-5 space-y-1.5 text-emerald-800 dark:text-emerald-300/80">
-                  <li>Click the <strong>Download</strong> button above.</li>
-                  <li>Extract the downloaded zip archive to any folder on your local computer.</li>
-                  <li>Open that folder in <strong>{selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}</strong>.</li>
-                  <li>
-                    Open the integrated terminal in your IDE and run:
-                    <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-2 rounded-lg border border-slate-800 mt-1.5 shadow-inner flex items-center justify-between select-all">
-                      <span>node agent_loop.js</span>
-                      <span className="text-[9px] text-slate-500 font-sans uppercase tracking-wide select-none">Run in terminal</span>
-                    </div>
-                  </li>
-                </ol>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-4 rounded-xl flex items-start gap-3 text-xs leading-relaxed text-amber-800 dark:text-amber-200/90 shadow-sm animate-fade-in">
-              <span className="text-base mt-0.5 select-none">💡</span>
-              <div className="space-y-1">
-                <strong className="font-extrabold uppercase tracking-wide text-[10px] text-amber-900 dark:text-amber-300">
-                  Tip: Run the loop locally anytime
+        {status && status.status !== 'idle' && status.consensusReached && (
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 p-5 rounded-xl text-xs leading-relaxed text-emerald-800 dark:text-emerald-200/90 shadow-sm animate-fade-in space-y-4">
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <span className="text-base mt-0.5 select-none shrink-0">🎉</span>
+              <div className="space-y-0.5">
+                <strong className="font-extrabold uppercase tracking-wide text-[11px] text-emerald-900 dark:text-emerald-300 block">
+                  Workspace Generated & Auto-Downloaded
                 </strong>
-                <p>
-                  If you prefer not to wait for another 5 cycles in the browser, or if your local workspace was blocked by IDE security settings, you can manually trigger code writing directly in your IDE:
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">
+                  The workspace archive has been automatically downloaded. If the download didn't start, use the Download button above.
                 </p>
-                <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-2.5 rounded-lg border border-slate-800 mt-2 select-all shadow-inner flex items-center justify-between">
-                  <span>node agent_loop.js</span>
-                  <span className="text-[9px] text-slate-500 font-sans tracking-wide uppercase select-none">Run in IDE terminal</span>
-                </div>
               </div>
             </div>
-          )
+
+            <hr className="border-emerald-200 dark:border-emerald-800/40" />
+
+            {/* Agentic Coding section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm select-none">⚡</span>
+                <strong className="font-extrabold uppercase tracking-wide text-[10px] text-emerald-900 dark:text-emerald-300">
+                  Agentic Coding (Recommended)
+                </strong>
+              </div>
+              <p>
+                If you use an agentic AI coding tool, simply open this workspace in{' '}
+                <strong>{selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}</strong>,
+                launch your agentic tool such as <strong>Cline</strong> or <strong>Claude Code</strong>, and say:
+              </p>
+              <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-3 rounded-lg border border-slate-800 shadow-inner">
+                <span className="text-emerald-400">"Build this project based on the approved specifications and .clinerules"</span>
+              </div>
+            </div>
+
+            <hr className="border-emerald-200 dark:border-emerald-800/40" />
+
+            {/* Manual Steps section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm select-none">📋</span>
+                <strong className="font-extrabold uppercase tracking-wide text-[10px] text-emerald-900 dark:text-emerald-300">
+                  Manual Steps
+                </strong>
+              </div>
+              <ol className="list-decimal pl-5 space-y-1.5 text-emerald-800 dark:text-emerald-300/80">
+                <li>Click the <strong>Download</strong> button above.</li>
+                <li>Extract the downloaded zip archive to any folder on your local computer.</li>
+                <li>Open that folder in <strong>{selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}</strong>.</li>
+                <li>
+                  Open the integrated terminal in your IDE and run:
+                  <div className="bg-slate-900 text-slate-200 font-mono text-[11px] p-2 rounded-lg border border-slate-800 mt-1.5 shadow-inner flex items-center justify-between select-all">
+                    <span>node agent_loop.js</span>
+                    <span className="text-[9px] text-slate-500 font-sans uppercase tracking-wide select-none">Run in terminal</span>
+                  </div>
+                </li>
+              </ol>
+            </div>
+          </div>
         )}
 
         {/* EXECUTION FAULT — EXACT ERROR DISPLAY */}
