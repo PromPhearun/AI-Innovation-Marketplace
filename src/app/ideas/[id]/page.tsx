@@ -235,8 +235,21 @@ export default function IdeaDetailsPage() {
   const [idea, setIdea] = useState<Idea | null>(null);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [commentSortOrder, setCommentSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [reviews, setReviews] = useState<AIReview[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const sortedComments = React.useMemo(() => {
+    return [...comments].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (commentSortOrder === 'newest') {
+        return timeB - timeA;
+      } else {
+        return timeA - timeB;
+      }
+    });
+  }, [comments, commentSortOrder]);
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'evaluation' | 'prd' | 'roadmap' | 'syndication' | 'agentLoop'>('evaluation');
@@ -1039,7 +1052,23 @@ export default function IdeaDetailsPage() {
 
                 {/* Comments Discussion Board */}
                 <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 rounded-2xl space-y-6">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Discussion Board</h3>
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-900/60 pb-3">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">Discussion Board</h3>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="comment-sort" className="text-[10px] font-bold text-slate-400 dark:text-slate-550 uppercase tracking-wider">
+                        Sort:
+                      </label>
+                      <select
+                        id="comment-sort"
+                        value={commentSortOrder}
+                        onChange={(e) => setCommentSortOrder(e.target.value as 'newest' | 'oldest')}
+                        className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-750 dark:text-slate-250 focus:outline-none focus:border-indigo-500 transition-all cursor-pointer"
+                      >
+                        <option value="newest">Newest Post</option>
+                        <option value="oldest">Oldest Post</option>
+                      </select>
+                    </div>
+                  </div>
 
                   {currentUser && (
                     <form onSubmit={handleAddComment} className="flex gap-3">
@@ -1062,10 +1091,10 @@ export default function IdeaDetailsPage() {
                   )}
 
                   <div className="space-y-4 pt-2">
-                    {comments.length === 0 ? (
+                    {sortedComments.length === 0 ? (
                       <p className="text-xs text-slate-500 text-center py-4 italic">No comments posted yet. Be the first to start the discussion!</p>
                     ) : (
-                      comments.map((comment) => (
+                      sortedComments.map((comment) => (
                         <div key={comment.id} className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/60 p-4 rounded-xl space-y-1.5 animate-fade-in">
                           <div className="flex items-center justify-between text-[10px] font-semibold">
                             <span className="text-indigo-600 dark:text-indigo-400">User #{comment.userId.split('_')[1] || comment.userId}</span>
