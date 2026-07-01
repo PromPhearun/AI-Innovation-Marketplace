@@ -144,7 +144,9 @@ export default function ReportPage() {
           }
         }
 
-        setIdeas(mergedIdeas);
+        // Exclude implemented ideas — they belong in the Implemented Hub, not Innovation Hub
+        const hubIdeas = mergedIdeas.filter((idea) => idea.status !== 'implemented');
+        setIdeas(hubIdeas);
       } catch (err) {
         console.error('Error fetching report details:', err);
         setError('We were unable to load the visual reports dashboard. Please try again later.');
