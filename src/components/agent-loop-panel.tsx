@@ -313,11 +313,14 @@ export default function AgentLoopPanel({
           window.location.hostname !== '127.0.0.1';
 
         if (data.status.status === 'running' && data.status.iteration < data.status.maxIterations) {
-          // Directly kick off the next iteration now — no reliance on the
-          // effect timer so the loop starts reliably on the very first click.
+          // Bug fix: only set pollingActive=true here. Do NOT call runNextIteration()
+          // directly — the useEffect that watches [status?.iteration, pollingActive]
+          // will fire it on the next render cycle with a fresh, non-stale closure.
+          // Calling runNextIteration() both here AND from the effect caused two
+          // competing iterate requests on the first click, which meant the second
+          // request saw iterateInFlightRef=true and bailed, leaving isActionLoading
+          // stuck true (button permanently disabled) until a page refresh.
           setPollingActive(true);
-          // Small delay to allow React to flush the state update before the next call
-          setTimeout(() => { runNextIteration(); }, 500);
         } else {
           setPollingActive(false);
           if (isCloudEnv && !isRunBefore && data.status.status === 'completed') {
@@ -476,18 +479,38 @@ export default function AgentLoopPanel({
         }
       }
 
-      setSaveSuccessMessage(
-        `✓ Saved ${fileNames.length} files to folder "${dirHandle.name}"! ` +
-        `Now open ${selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'} → ` +
-        `File → Open Folder → select the "${dirHandle.name}" folder you just chose.`
-      );
+      // 4. Attempt to open the IDE via a URI scheme.
+      // showDirectoryPicker() exposes only the folder NAME (not the full OS path),
+      // so we cannot build an exact vscode://file/<full-path> link. However, firing
+      // the IDE URI scheme with no path still opens the IDE application itself,
+      // letting the user quickly drag/drop or use File → Open Folder.
+      const ideUriMap: Record<string, string> = {
+        vscode: 'vscode://',
+        cursor: 'cursor://',
+        kiro: 'kiro://',
+      };
+      const ideUri = ideUriMap[selectedIde] || 'vscode://';
+      let ideOpened = false;
+      try {
+        // window.open with a URI scheme triggers the OS registered handler (opens the IDE).
+        // It may return null on some browsers but still launches the app.
+        const win = window.open(ideUri, '_blank');
+        // Give the OS a moment to hand off to the protocol handler
+        if (win) {
+          setTimeout(() => { try { win.close(); } catch {} }, 500);
+        }
+        ideOpened = true;
+      } catch {
+        // Silently swallow — protocol launch is best-effort
+      }
 
-      // 4. Attempt protocol link (works if user saved to default ~/Desktop/agent_workspace/)
-      // Browser security sandbox prevents obtaining the full absolute path from
-      // showDirectoryPicker(), so IDE protocol links (vscode://file/...) cannot
-      // reliably point to the user-chosen folder. Instead, guide the user to
-      // open the folder manually in their IDE — this always works regardless of
-      // where the folder was saved.
+      const ideName = selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro';
+      setSaveSuccessMessage(
+        `✓ Saved ${fileNames.length} files to folder "${dirHandle.name}"!` +
+        (ideOpened
+          ? ` ${ideName} should be opening — use File → Open Folder → select the "${dirHandle.name}" folder.`
+          : ` Open ${ideName} → File → Open Folder → select the "${dirHandle.name}" folder you just chose.`)
+      );
     } catch (err: unknown) {
       const error = err as Error;
       if (error.name !== 'AbortError') {

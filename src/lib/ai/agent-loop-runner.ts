@@ -1284,6 +1284,11 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
     } catch (e) {
       appendLog(ideaId, `⚠️ Failed to generate .clinerules: ${e instanceof Error ? e.message : e}`);
     }
+    // Bug fix: saveAgentLoopStatus MUST be called in the approved branch too,
+    // not just in the else branch. Without this the consensus status and the
+    // .clinerules file are never durably persisted to Firestore after approval,
+    // so the UI never shows the file and consensusReached never flips in the DB.
+    await saveAgentLoopStatus(ideaId, status);
   } else {
     await saveAgentLoopStatus(ideaId, status);
   }
@@ -2001,6 +2006,9 @@ main().catch(console.error);`;
     launchIDE(ideaId, ideToOpen);
   }
 
-  // Execute first iteration synchronously (Vercel-compatible: one iteration per request)
-  await runAgentLoopIteration(ideaId);
+  // Note: We do NOT call runAgentLoopIteration() here.
+  // The client fires the first 'iterate' POST immediately after 'start' returns,
+  // so running an iteration here would cause Iteration 1 to execute twice:
+  // once server-side (here) and once from the first client iterate call.
+  // This would cause the Critic AI to be skipped for Iteration 1 in the Live TTY Buffer.
 }
