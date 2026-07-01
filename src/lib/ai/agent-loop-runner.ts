@@ -1082,8 +1082,6 @@ You MUST format your output as a series of instructions containing the file cont
 
 Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
 
-  await writeWorkspaceFile(ideaId, 'debug_payload.txt', builderPrompt);
-
   let builderResponse;
   try {
     // Cap the call at 270s so it fails gracefully *inside* the function with a

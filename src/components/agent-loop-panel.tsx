@@ -173,7 +173,8 @@ export default function AgentLoopPanel({
     }
   }, [status?.logs]);
 
-  // Auto-download workspace when consensus is reached (cloud env)
+  // Auto-download workspace when consensus is reached — uses fetch+blob so the
+  // browser doesn't navigate away from the React app (which caused a white screen).
   useEffect(() => {
     if (!status?.consensusReached || autoDownloadTriggered) return;
     const isCloudEnv = typeof window !== 'undefined' &&
@@ -181,9 +182,25 @@ export default function AgentLoopPanel({
       window.location.hostname !== '127.0.0.1';
     if (isCloudEnv && status.filesCreated.length > 0) {
       setAutoDownloadTriggered(true);
-      // Small delay to let UI update before triggering download
-      setTimeout(() => {
-        window.location.href = `/api/ideas/${ideaId}/agent-loop/download`;
+      setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/ideas/${ideaId}/agent-loop/download`);
+          if (!res.ok) {
+            console.warn('Auto-download failed with status', res.status);
+            return;
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `idea_${ideaId}_workspace.zip`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        } catch (err) {
+          console.warn('Auto-download error:', err);
+        }
       }, 800);
     }
   }, [status?.consensusReached, autoDownloadTriggered, ideaId, status?.filesCreated]);
@@ -199,8 +216,75 @@ export default function AgentLoopPanel({
     }
   }, []);
 
+  // Ref to track whether an iterate call is currently in-flight so the
+  // auto-iteration effect never fires two concurrent requests.
+  const iterateInFlightRef = useRef(false);
+
+  // Run one iterate cycle and schedule the next if still running.
+  // This is called both by handleStartLoop (first iteration after start)
+  // and by the auto-iteration useEffect for subsequent cycles.
+  const runNextIteration = React.useCallback(async () => {
+    if (iterateInFlightRef.current) return;
+    iterateInFlightRef.current = true;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'iterate' }),
+        signal: AbortSignal.timeout(295_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStatus(data.status);
+        if (data.status.status === 'running' && data.status.iteration < data.status.maxIterations) {
+          setPollingActive(true);
+        } else {
+          setPollingActive(false);
+        }
+      } else {
+        console.warn('iterate got non-ok response, re-fetching status…', res.status);
+        try {
+          const statusRes = await fetch(`/api/ideas/${ideaId}/agent-loop`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            setStatus(statusData);
+            if (statusData.status === 'running' && statusData.iteration < statusData.maxIterations) {
+              setPollingActive(true);
+            } else {
+              setPollingActive(false);
+            }
+          }
+        } catch {
+          setPollingActive(false);
+        }
+      }
+    } catch (err) {
+      console.error('iterate fetch failed:', err);
+      try {
+        const statusRes = await fetch(`/api/ideas/${ideaId}/agent-loop`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          setStatus(statusData);
+          if (statusData.status === 'running' && statusData.iteration < statusData.maxIterations) {
+            setPollingActive(true);
+            return;
+          }
+        }
+      } catch {
+        // ignore secondary failure
+      }
+      setPollingActive(false);
+    } finally {
+      iterateInFlightRef.current = false;
+      setIsActionLoading(false);
+    }
+  }, [ideaId]);
+
   // Trigger loop execution
   const handleStartLoop = async () => {
+    // Immediately stop any running polling / in-flight iterate from previous run
+    setPollingActive(false);
     setIsActionLoading(true);
     try {
       const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
@@ -215,16 +299,22 @@ export default function AgentLoopPanel({
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status);
+
+        const isCloudEnv = typeof window !== 'undefined' &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1';
+
         if (data.status.status === 'running' && data.status.iteration < data.status.maxIterations) {
+          // Directly kick off the next iteration now — no reliance on the
+          // effect timer so the loop starts reliably on the very first click.
           setPollingActive(true);
+          // Small delay to allow React to flush the state update before the next call
+          setTimeout(() => { runNextIteration(); }, 500);
         } else {
           setPollingActive(false);
-        }
-        const isCloudEnv = typeof window !== 'undefined' && 
-          window.location.hostname !== 'localhost' && 
-          window.location.hostname !== '127.0.0.1';
-        if (isCloudEnv && !isRunBefore && data.status.status === 'completed') {
-          setShowIdeGuideModal(true);
+          if (isCloudEnv && !isRunBefore && data.status.status === 'completed') {
+            setShowIdeGuideModal(true);
+          }
         }
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -237,8 +327,11 @@ export default function AgentLoopPanel({
     }
   };
 
-  // Trigger manual kill switch
+  // Trigger manual kill switch — optimistic UI: mark stopped immediately
   const handleStopLoop = async () => {
+    // Optimistically stop the UI loop right away so the button responds on first click
+    setPollingActive(false);
+    setStatus(prev => prev ? { ...prev, status: 'stopped' } : prev);
     setIsActionLoading(true);
     try {
       const res = await fetch(`/api/ideas/${ideaId}/agent-loop`, {
@@ -249,7 +342,6 @@ export default function AgentLoopPanel({
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status);
-        setPollingActive(false);
       }
     } catch (err) {
       console.error(err);
@@ -292,9 +384,28 @@ export default function AgentLoopPanel({
     }
   };
 
-  // Download complete workspace
-  const handleDownloadWorkspace = () => {
-    window.location.href = `/api/ideas/${ideaId}/agent-loop/download`;
+  // Download complete workspace — fetch+blob keeps the user on the page
+  const handleDownloadWorkspace = async () => {
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/agent-loop/download`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Download failed. Please try again.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `idea_${ideaId}_workspace.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Download failed. Check your connection and try again.');
+    }
   };
 
   // Save workspace files to local folder via File System Access API, then open IDE
