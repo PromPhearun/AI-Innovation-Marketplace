@@ -477,16 +477,17 @@ export default function AgentLoopPanel({
       }
 
       setSaveSuccessMessage(
-        `✓ Saved ${fileNames.length} files! Open your ${selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'} and open the folder you selected.`
+        `✓ Saved ${fileNames.length} files to folder "${dirHandle.name}"! ` +
+        `Now open ${selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'} → ` +
+        `File → Open Folder → select the "${dirHandle.name}" folder you just chose.`
       );
 
       // 4. Attempt protocol link (works if user saved to default ~/Desktop/agent_workspace/)
-      const defaultPath = `~/Desktop/agent_workspace/${displayFolderName}`;
-      window.open(
-        `${selectedIde}://file/${encodeURIComponent(defaultPath)}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
+      // Browser security sandbox prevents obtaining the full absolute path from
+      // showDirectoryPicker(), so IDE protocol links (vscode://file/...) cannot
+      // reliably point to the user-chosen folder. Instead, guide the user to
+      // open the folder manually in their IDE — this always works regardless of
+      // where the folder was saved.
     } catch (err: unknown) {
       const error = err as Error;
       if (error.name !== 'AbortError') {
@@ -577,7 +578,7 @@ export default function AgentLoopPanel({
   );
   const buttonText = isRunBefore 
     ? 'Run Spec Engine for 5 More Loops' 
-    : 'Launch Spec Engine & Open IDE';
+    : 'Launch Application Spec Engine';
 
   const displayFolderName = ideaId.startsWith('idea_') ? ideaId : `idea_${ideaId}`;
 
