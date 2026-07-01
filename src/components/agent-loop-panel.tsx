@@ -558,7 +558,15 @@ export default function AgentLoopPanel({
     }
   };
 
-  const isRunBefore = status && (status.status === 'completed' || status.status === 'stopped' || (status.iteration > 0 && status.status !== 'failed'));
+  // Show "Run Spec Engine for 5 More Cycles" whenever there has been a previous
+  // run (completed, stopped, or even failed mid-run). This lets the user resume
+  // from where the loop left off instead of starting from scratch.
+  const isRunBefore = status && (
+    status.status === 'completed' ||
+    status.status === 'stopped' ||
+    status.status === 'failed' ||
+    status.iteration > 0
+  );
   const buttonText = isRunBefore 
     ? 'Run Spec Engine for 5 More Cycles' 
     : 'Launch Spec Engine & Open IDE';
@@ -659,18 +667,6 @@ export default function AgentLoopPanel({
                   Open Workspace in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleStartLoop}
-                  disabled={isActionLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Run Agent Code Builder (5 Cycles)
-                </button>
               </div>
             ) : (
               <button

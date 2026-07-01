@@ -1041,6 +1041,62 @@ export async function runAgentLoopIteration(ideaId: string): Promise<LoopStatus>
   return afterIterStatus;
 }
 
+// Maximum total characters of workspace file content to include in a single
+// Builder or Critic prompt. This prevents token overflows that cause HTTP 500
+// errors from the LiteLLM gateway (the upstream model refuses oversized requests).
+// At ~4 chars/token this is roughly 10,000 tokens of file content — well within
+// any model's context window when combined with the system/user prompt overhead.
+const MAX_CONTEXT_CHARS = 40_000;
+
+/**
+ * Truncate an assembled file-context string to MAX_CONTEXT_CHARS, keeping as
+ * many complete ### FILE blocks as possible (drops the tail, not the middle).
+ */
+function truncateContext(context: string): string {
+  if (context.length <= MAX_CONTEXT_CHARS) return context;
+  // Truncate and append a notice so the model knows content was cut
+  const truncated = context.slice(0, MAX_CONTEXT_CHARS);
+  // Find the last complete file block boundary to avoid mid-block cuts
+  const lastEnd = truncated.lastIndexOf('\n@@@ END FILE @@@');
+  const cutPoint = lastEnd > 0 ? lastEnd + '\n@@@ END FILE @@@'.length : MAX_CONTEXT_CHARS;
+  return context.slice(0, cutPoint) + '\n\n[...context truncated to fit token limit — remaining files omitted...]\n';
+}
+
+/**
+ * Call the OpenAI-compatible endpoint with automatic retry for transient HTTP
+ * 5xx errors. LiteLLM gateways occasionally return 500 under heavy load; a
+ * single retry with a short delay resolves most cases without surfacing the
+ * error to the user. Persistent errors (401/403/timeout) are NOT retried.
+ */
+import type { ChatCompletion, ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions';
+
+async function callAIWithRetry(
+  params: ChatCompletionCreateParamsNonStreaming,
+  signal: AbortSignal,
+  maxRetries = 2,
+  retryDelayMs = 4_000
+): Promise<ChatCompletion> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await openai.chat.completions.create(params, { signal });
+    } catch (err: unknown) {
+      lastErr = err;
+      const anyErr = err as { status?: number; name?: string };
+      const httpStatus = anyErr?.status;
+      // Do not retry on: timeout/abort, 4xx client errors, or last attempt
+      const isTimeout = anyErr?.name === 'TimeoutError' || anyErr?.name === 'AbortError';
+      const isClientError = typeof httpStatus === 'number' && httpStatus >= 400 && httpStatus < 500;
+      if (isTimeout || isClientError || attempt >= maxRetries) {
+        throw err;
+      }
+      // Transient 5xx — wait briefly and retry
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Execute one Builder + Critic spec iteration.
  */
@@ -1063,7 +1119,8 @@ async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise
     const content = await readWorkspaceFile(ideaId, file);
     fileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
   }
-  const currentFilesContent = fileContents.join('\n\n');
+  // Truncate to prevent token overflows that cause HTTP 500 from the LLM gateway
+  const currentFilesContent = truncateContext(fileContents.join('\n\n'));
 
   // === BUILDER PERSONA ===
   appendLog(ideaId, '🤖 Persona A (The Builder) is drafting updates...');
@@ -1084,18 +1141,18 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
 
   let builderResponse;
   try {
-    // Cap the call at 270s so it fails gracefully *inside* the function with a
-    // real error, instead of being silently hard-killed by Vercel's 300s
-    // maxDuration (which would freeze the loop at "drafting updates…" forever).
-    const builderAbort = AbortSignal.timeout(270_000);
-    builderResponse = await openai.chat.completions.create({
+    // Use 110s timeout — well under Vercel's 300s maxDuration so we get a
+    // graceful TimeoutError instead of a silent hard-kill from the gateway.
+    const builderAbort = AbortSignal.timeout(110_000);
+    builderResponse = await callAIWithRetry({
       model: MODEL_NAME,
       messages: [
         { role: 'system', content: 'You are an elite developer and software builder.' },
         { role: 'user', content: builderPrompt }
       ],
-      temperature: 0.2
-    }, { signal: builderAbort });
+      temperature: 0.2,
+      max_tokens: 4096,
+    }, builderAbort);
   } catch (err: unknown) {
     const errMsg = describeAiError(err);
     appendLog(ideaId, `❌ Builder AI call failed: ${errMsg}`);
@@ -1163,7 +1220,8 @@ async function executeCriticIteration(
     const content = await readWorkspaceFile(ideaId, file);
     criticFileContents.push(`### FILE: ${file}\n\`\`\`\n${content}\n\`\`\``);
   }
-  const updatedFilesContent = criticFileContents.join('\n\n');
+  // Truncate to prevent token overflows that cause HTTP 500 from the LLM gateway
+  const updatedFilesContent = truncateContext(criticFileContents.join('\n\n'));
 
   const criticPrompt = `You are "The Critic AI", an elite security analyst, business auditor, and technical consensus evaluator.
 Your goal is to inspect the software design artifacts and source files in this workspace to ensure they are complete, secure, logically consistent, and fulfill the project's original vision perfectly.
@@ -1177,15 +1235,17 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
 
   let criticResponse;
   try {
-    const criticAbort = AbortSignal.timeout(270_000);
-    criticResponse = await openai.chat.completions.create({
+    // 110s timeout — same as Builder, leaves headroom before Vercel's 300s limit
+    const criticAbort = AbortSignal.timeout(110_000);
+    criticResponse = await callAIWithRetry({
       model: MODEL_NAME,
       messages: [
         { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
         { role: 'user', content: criticPrompt }
       ],
-      temperature: 0.1
-    }, { signal: criticAbort });
+      temperature: 0.1,
+      max_tokens: 2048,
+    }, criticAbort);
   } catch (err: unknown) {
     const errMsg = describeAiError(err);
     appendLog(ideaId, `❌ Critic AI call failed: ${errMsg}`);
@@ -1379,7 +1439,11 @@ export async function runAgentLoop(
     ideOpened: existing && resume ? existing.ideOpened : false,
     filesCreated: existing && resume ? existing.filesCreated : [],
     history: existing && resume ? existing.history : '',
-    consensusReached: existing && resume ? existing.consensusReached : false
+    consensusReached: existing && resume ? existing.consensusReached : false,
+    // Preserve the full in-memory file contents map so the resumed iteration
+    // can still read all previously written workspace files on Vercel (serverless
+    // filesystem is ephemeral — fileContents is the only durable source of truth).
+    fileContents: existing && resume ? existing.fileContents : undefined,
   };
 
   // Write the "running" status to memory/Firestore FIRST before any appendLog
