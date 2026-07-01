@@ -1814,7 +1814,7 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       conversationHistory.push({ role: 'assistant', content: responseText });
 
       // Parse file blocks
-      const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
+      const fileRegex = /@@@ FILE:\\s*([a-zA-Z0-9_\\-\\.\\/]+)\\r?\\n([\\s\\S]*?)\\r?\\n@@@ END FILE @@@/g;
       let match;
       let filesUpdated = [];
 
