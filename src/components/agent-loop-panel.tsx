@@ -768,7 +768,7 @@ export default function AgentLoopPanel({
                   Workspace Generated & Auto-Downloaded
                 </strong>
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">
-                  The workspace archive has been automatically downloaded. If the download didn't start, use the Download button above.
+                  The workspace archive has been automatically downloaded. If the download {"didn't"} start, use the Download button above.
                 </p>
               </div>
             </div>
@@ -789,7 +789,7 @@ export default function AgentLoopPanel({
                 launch your agentic tool such as <strong>Cline</strong> or <strong>Claude Code</strong>, and say:
               </p>
               <div className="bg-slate-900 text-slate-100 font-mono text-[11px] p-3 rounded-lg border border-slate-800 shadow-inner">
-                <span className="text-emerald-400">"Build this project based on the approved specifications and .clinerules"</span>
+                <span className="text-emerald-400">{"\"Build this project based on the approved specifications and .clinerules\""}</span>
               </div>
             </div>
 
