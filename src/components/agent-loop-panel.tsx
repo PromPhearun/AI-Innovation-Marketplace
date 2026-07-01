@@ -44,7 +44,13 @@ export default function AgentLoopPanel({
   const [viewingContent, setViewingContent] = useState<string>('');
   const [isViewingLoading, setIsViewingLoading] = useState(false);
   const [showIdeGuideModal, setShowIdeGuideModal] = useState(false);
-  const [autoDownloadTriggered, setAutoDownloadTriggered] = useState(false);
+  // Persist the auto-download flag in sessionStorage so a page refresh
+  // doesn't re-trigger the automatic download — the user can still use the
+  // manual "Download Workspace Spec Archive" button at any time.
+  const [autoDownloadTriggered, setAutoDownloadTriggered] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(`auto_dl_${ideaId}`) === '1';
+  });
   const [showFirebaseWarning, setShowFirebaseWarning] = useState(false);
 
   // Poll status from the API
@@ -182,6 +188,8 @@ export default function AgentLoopPanel({
       window.location.hostname !== '127.0.0.1';
     if (isCloudEnv && status.filesCreated.length > 0) {
       setAutoDownloadTriggered(true);
+      // Persist so refresh / re-entry doesn't re-trigger the download
+      sessionStorage.setItem(`auto_dl_${ideaId}`, '1');
       setTimeout(async () => {
         try {
           const res = await fetch(`/api/ideas/${ideaId}/agent-loop/download`);
@@ -778,7 +786,7 @@ export default function AgentLoopPanel({
         )}
 
         {/* EXECUTION FAULT — EXACT ERROR DISPLAY */}
-        {status?.status === 'failed' && status?.error && (
+        {status?.status === 'failed' && status?.error && !status?.consensusReached && (
           <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-300 dark:border-rose-700/60 p-4 rounded-xl flex items-start gap-3 text-xs shadow-sm animate-fade-in">
             <span className="text-lg mt-0.5 shrink-0">❌</span>
             <div className="space-y-1.5 text-rose-800 dark:text-rose-300 min-w-0 flex-1">
