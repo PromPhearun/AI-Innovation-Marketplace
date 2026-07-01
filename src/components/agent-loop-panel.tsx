@@ -492,13 +492,10 @@ export default function AgentLoopPanel({
       const ideUri = ideUriMap[selectedIde] || 'vscode://';
       let ideOpened = false;
       try {
-        // window.open with a URI scheme triggers the OS registered handler (opens the IDE).
-        // It may return null on some browsers but still launches the app.
-        const win = window.open(ideUri, '_blank');
-        // Give the OS a moment to hand off to the protocol handler
-        if (win) {
-          setTimeout(() => { try { win.close(); } catch {} }, 500);
-        }
+        // Using window.location.href reliably launches custom protocol schemes (vscode://, cursor://)
+        // after asynchronous operations, bypassing browser pop-up blockers (which block window.open
+        // when called outside direct, synchronous user event handlers) and avoiding blank tabs.
+        window.location.href = ideUri;
         ideOpened = true;
       } catch {
         // Silently swallow — protocol launch is best-effort
