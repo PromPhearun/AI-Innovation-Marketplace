@@ -419,103 +419,18 @@ export default function AgentLoopPanel({
     }
   };
 
-  // Save workspace files to local folder via File System Access API, then open IDE
-  const [isSavingToLocal, setIsSavingToLocal] = useState(false);
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
-
-  const handleSaveToLocalAndOpen = async () => {
-    // Check browser support
-    if (typeof window === 'undefined' || !('showDirectoryPicker' in window)) {
-      alert(
-        'Your browser does not support direct folder access. ' +
-        'Please use Chrome, Edge, or Brave, or download the ZIP archive instead.'
-      );
-      return;
-    }
-
-    setIsSavingToLocal(true);
-    setSaveSuccessMessage(null);
-
+  // Trigger direct local IDE launch
+  const handleOpenIDE = () => {
+    const ideUriMap: Record<string, string> = {
+      vscode: 'vscode://',
+      cursor: 'cursor://',
+      kiro: 'kiro://',
+    };
+    const ideUri = ideUriMap[selectedIde] || 'vscode://';
     try {
-      // 1. Pick a local folder
-      const dirHandle = await (window as unknown as {
-        showDirectoryPicker: (options?: {
-          id?: string;
-          mode?: 'read' | 'readwrite';
-          startIn?: string;
-        }) => Promise<FileSystemDirectoryHandle>;
-      }).showDirectoryPicker({
-        mode: 'readwrite',
-        startIn: 'desktop',
-      });
-
-      // 2. Fetch all workspace files from API
-      const res = await fetch(`/api/ideas/${ideaId}/agent-loop/files`);
-      if (!res.ok) {
-        throw new Error('Failed to fetch workspace files');
-      }
-      const { files } = await res.json() as { files: Record<string, string> };
-
-      // 3. Write each file to the chosen directory
-      const fileNames = Object.keys(files);
-      for (const filename of fileNames) {
-        const content = files[filename];
-        // Create subdirectories as needed
-        const parts = filename.split('/');
-        let currentDir: FileSystemDirectoryHandle = dirHandle;
-
-        for (let i = 0; i < parts.length - 1; i++) {
-          const dirName = parts[i];
-          if (!dirName) continue;
-          currentDir = await currentDir.getDirectoryHandle(dirName, { create: true });
-        }
-
-        const fileName = parts[parts.length - 1];
-        if (fileName) {
-          const fileHandle = await currentDir.getFileHandle(fileName, { create: true });
-          const writable = await fileHandle.createWritable();
-          await writable.write(content);
-          await writable.close();
-        }
-      }
-
-      // 4. Attempt to open the IDE via a URI scheme.
-      // showDirectoryPicker() exposes only the folder NAME (not the full OS path),
-      // so we cannot build an exact vscode://file/<full-path> link. However, firing
-      // the IDE URI scheme with no path still opens the IDE application itself,
-      // letting the user quickly drag/drop or use File → Open Folder.
-      const ideUriMap: Record<string, string> = {
-        vscode: 'vscode://',
-        cursor: 'cursor://',
-        kiro: 'kiro://',
-      };
-      const ideUri = ideUriMap[selectedIde] || 'vscode://';
-      let ideOpened = false;
-      try {
-        // Using window.location.href reliably launches custom protocol schemes (vscode://, cursor://)
-        // after asynchronous operations, bypassing browser pop-up blockers (which block window.open
-        // when called outside direct, synchronous user event handlers) and avoiding blank tabs.
-        window.location.href = ideUri;
-        ideOpened = true;
-      } catch {
-        // Silently swallow — protocol launch is best-effort
-      }
-
-      const ideName = selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro';
-      setSaveSuccessMessage(
-        `✓ Saved ${fileNames.length} files to folder "${dirHandle.name}"!` +
-        (ideOpened
-          ? ` ${ideName} should be opening — use File → Open Folder → select the "${dirHandle.name}" folder.`
-          : ` Open ${ideName} → File → Open Folder → select the "${dirHandle.name}" folder you just chose.`)
-      );
-    } catch (err: unknown) {
-      const error = err as Error;
-      if (error.name !== 'AbortError') {
-        console.error('Save to local failed:', error);
-        alert(`Failed to save files: ${error.message}`);
-      }
-    } finally {
-      setIsSavingToLocal(false);
+      window.location.href = ideUri;
+    } catch (err) {
+      console.error('Failed to open IDE:', err);
     }
   };
 
@@ -717,39 +632,18 @@ export default function AgentLoopPanel({
               </button>
             )}
 
-            {/* Save & Open in IDE — File System Access API (cloud & local) */}
+            {/* Open IDE Button */}
             {status?.consensusReached && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSaveToLocalAndOpen}
-                  disabled={isSavingToLocal}
-                  className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 disabled:bg-violet-400 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  {isSavingToLocal ? (
-                    <>
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Saving files...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                      </svg>
-                      Save & Open in {selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'}
-                    </>
-                  )}
-                </button>
-
-                {saveSuccessMessage && (
-                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 rounded-lg text-[11px] text-emerald-700 dark:text-emerald-300 leading-relaxed animate-fade-in">
-                    {saveSuccessMessage}
-                  </div>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={handleOpenIDE}
+                className="w-full bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-extrabold text-xs py-3 px-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+                Open IDE ({selectedIde === 'vscode' ? 'VS Code' : selectedIde === 'cursor' ? 'Cursor' : 'Kiro'})
+              </button>
             )}
           </div>
         </div>
