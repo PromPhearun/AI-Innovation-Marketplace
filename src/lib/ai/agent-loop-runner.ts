@@ -1529,7 +1529,9 @@ Your task is to automatically build out the complete codebase inside this worksp
   const apiKey = process.env.OPENAI_API_KEY || '';
   const apiBase = process.env.OPENAI_API_BASE || process.env.API_BASE_URL || 'https://api.openai.com/v1';
   const modelName = process.env.OPENAI_MODEL_NAME || MODEL_NAME;
-  await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\nOPENAI_MODEL_NAME=${modelName}\n`);
+  const cfClientId = process.env.CF_CLIENT_ID || '';
+  const cfClientSecret = process.env.CF_CLIENT_SECRET || '';
+  await writeWorkspaceFile(ideaId, '.env', `OPENAI_API_KEY=${apiKey}\nOPENAI_API_BASE=${apiBase}\nOPENAI_MODEL_NAME=${modelName}\nCF_CLIENT_ID=${cfClientId}\nCF_CLIENT_SECRET=${cfClientSecret}\n`);
 
   // Generate local .gitignore to protect key leaks or node_modules
   const gitignoreContent = `.env\nnode_modules/\nkill.lock\ndist/\nbuild/\n`;
@@ -1573,6 +1575,8 @@ console.log(\`\${colors.bold}\${colors.cyan}====================================
 let apiKey = process.env.OPENAI_API_KEY || '';
 let apiBase = process.env.OPENAI_API_BASE || process.env.API_BASE_URL || 'https://litellm.deriv.ai/v1';
 let modelName = process.env.OPENAI_MODEL_NAME || 'deepseek-v4-pro';
+let cfClientId = process.env.CF_CLIENT_ID || '';
+let cfClientSecret = process.env.CF_CLIENT_SECRET || '';
 
 if (fs.existsSync('.env')) {
   const envContent = fs.readFileSync('.env', 'utf8');
@@ -1584,6 +1588,8 @@ if (fs.existsSync('.env')) {
       if (key === 'OPENAI_API_KEY') apiKey = val;
       if (key === 'OPENAI_API_BASE') apiBase = val;
       if (key === 'OPENAI_MODEL_NAME') modelName = val;
+      if (key === 'CF_CLIENT_ID') cfClientId = val;
+      if (key === 'CF_CLIENT_SECRET') cfClientSecret = val;
     }
   });
 }
@@ -1609,17 +1615,26 @@ function callAI(messages, onChunk) {
       stream: true
     });
 
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': \`Bearer \${apiKey}\`,
+      'Content-Length': Buffer.byteLength(postData),
+      'User-Agent': 'Deriv-Agent-Loop/1.0'
+    };
+
+    if (cfClientId) {
+      headers['CF-Access-Client-Id'] = cfClientId;
+    }
+    if (cfClientSecret) {
+      headers['CF-Access-Client-Secret'] = cfClientSecret;
+    }
+
     const options = {
       hostname: url.hostname,
       port: url.port || 443,
       path: url.pathname + url.search,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': \`Bearer \${apiKey}\`,
-        'Content-Length': Buffer.byteLength(postData),
-        'User-Agent': 'Deriv-Agent-Loop/1.0'
-      }
+      headers: headers
     };
 
     const req = https.request(options, (res) => {
