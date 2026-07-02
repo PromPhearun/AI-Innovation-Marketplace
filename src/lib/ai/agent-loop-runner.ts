@@ -137,9 +137,25 @@ export interface LoopStatus {
   // workspace file contents survive across serverless cold-starts. Keyed by
   // the relative file path (same values as filesCreated[]).
   fileContents?: Record<string, string>;
+  // --- Builder/Critic deadlock self-healing ---
+  // Normalized text of the most recent (non-approved) Critic critique. Used to
+  // detect when the Critic keeps repeating the SAME feedback iteration after
+  // iteration — the classic symptom of a stuck/non-progressing loop.
+  lastCritiqueNormalized?: string;
+  // The raw (untruncated) text of the most recent Critic critique, injected
+  // directly into the next Builder prompt so feedback is never lost/truncated.
+  lastCritiqueRaw?: string;
+  // How many consecutive iterations have produced an identical critique.
+  consecutiveCriticRepeats?: number;
+
+  // How many times the autonomous Clarifier AI has already rewritten
+  // goal.md/requirements.md/architecture.md to try to break a deadlock in this
+  // run. Capped so a truly unfixable idea can't spin forever burning API cost.
+  clarificationsUsed?: number;
 }
 
 // In-memory global store to hold loop statuses across API hot-reloads
+
 const globalWithLoops = global as typeof globalThis & {
   _agentLoops?: Record<string, LoopStatus>;
   _abortControllers?: Record<string, boolean>;
@@ -160,23 +176,53 @@ const agentLoops = globalWithLoops._agentLoops;
 const abortControllers = globalWithLoops._abortControllers;
 const executionPromises = globalWithLoops._executionPromises;
 
+// Shared cloud-host detection, used to branch behavior that differs between a
+// serverless/cloud deployment (ephemeral filesystem, hard 300s function
+// duration limit on Vercel) and a local Next.js dev/production server (no
+// such constraints). Previously this check was duplicated in three places
+// (getWorkspaceBase, launchIDE, executeDeveloperLoop) which risked drifting
+// out of sync; it is now defined once and reused everywhere.
+export function isCloudHost(): boolean {
+  return (
+    process.env.VERCEL === '1' ||
+    process.env.VERCEL === 'true' ||
+    !!process.env.VERCEL ||
+    !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    !!process.env.NETLIFY ||
+    !!process.env.RENDER ||
+    !!process.env.FLY_APP_NAME ||
+    !!process.env.HEROKU_APP_ID ||
+    process.env.AI_MARKETPLACE_CLOUD_ENV === 'true'
+  );
+}
+
+// Timeout (in ms) for a single Builder/Critic/Clarifier AI call.
+//   - On a cloud/serverless host (e.g. Vercel), we must stay comfortably under
+//     the platform's hard 300s function-duration ceiling, so we cap at 110s.
+//   - Running locally there is no such external limit, so we allow a much
+//     longer window (280s) — this matters because larger max_tokens values
+//     (needed to stop the Builder/Critic from being truncated mid-response,
+//     see below) mean a reasoning model can legitimately take well over 110s
+//     to finish "thinking" plus write its full response.
+//   - AI_CALL_TIMEOUT_MS env var can override this explicitly on either
+//     environment if further tuning is needed without a code change.
+export function getAiCallTimeoutMs(): number {
+  const override = process.env.AI_CALL_TIMEOUT_MS;
+  if (override) {
+    const parsed = parseInt(override, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return isCloudHost() ? 110_000 : 280_000;
+}
+
 // Determine workspace base depending on the environment. For local, save on the user's Desktop.
 const getWorkspaceBase = () => {
-  const isCloudHost = 
-    process.env.VERCEL === '1' || 
-    process.env.VERCEL === 'true' || 
-    !!process.env.VERCEL || 
-    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
-    !!process.env.NETLIFY || 
-    !!process.env.RENDER || 
-    !!process.env.FLY_APP_NAME || 
-    !!process.env.HEROKU_APP_ID;
-
-  if (isCloudHost) {
+  if (isCloudHost()) {
     return path.join(process.cwd(), 'agent_workspace');
   }
   return path.join(os.homedir(), 'Desktop', 'agent_workspace');
 };
+
 
 const WORKSPACE_BASE = getWorkspaceBase();
 
@@ -611,21 +657,11 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
 
   // Security check: Only run child_process when executed locally.
   // We identify cloud serverless/hosting environments specifically to support local production-mode testing.
-  const isCloudHost = 
-    process.env.VERCEL === '1' || 
-    process.env.VERCEL === 'true' || 
-    !!process.env.VERCEL || 
-    !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
-    !!process.env.NETLIFY || 
-    !!process.env.RENDER || 
-    !!process.env.FLY_APP_NAME || 
-    !!process.env.HEROKU_APP_ID || 
-    process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
-
-  if (isCloudHost) {
+  if (isCloudHost()) {
     appendLog(ideaId, `⚠️ Cloud host detected. IDE launch command skipped for safety.`);
     return false;
   }
+
 
   let cmd = '';
   const rootFile = path.join(workspacePath, 'README.md');
@@ -869,8 +905,11 @@ Analyze the goals, create a complete folder structure, write package.json, src f
     appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
 
     try {
-      const devAbort = AbortSignal.timeout(270_000);
+      // Environment-aware timeout — same policy as the spec-engine Builder/Critic
+      // calls (110s on cloud hosts to stay under Vercel's 300s ceiling, 280s locally).
+      const devAbort = AbortSignal.timeout(getAiCallTimeoutMs());
       const devResponse = await openai.chat.completions.create({
+
         model: MODEL_NAME,
         messages: prunedDevHistory,
         temperature: 0.3
@@ -906,18 +945,8 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       if (hasPackageJson) {
         appendLog(ideaId, `⚙️ package.json found. Running build/compile verification...`);
         try {
-          const isCloudHostLocal = 
-            process.env.VERCEL === '1' || 
-            process.env.VERCEL === 'true' || 
-            !!process.env.VERCEL || 
-            !!process.env.AWS_LAMBDA_FUNCTION_NAME || 
-            !!process.env.NETLIFY || 
-            !!process.env.RENDER || 
-            !!process.env.FLY_APP_NAME || 
-            !!process.env.HEROKU_APP_ID || 
-            process.env.AI_MARKETPLACE_CLOUD_ENV === 'true';
+          if (!isCloudHost()) {
 
-          if (!isCloudHostLocal) {
             const nodeModulesPath = path.join(workspacePath, 'node_modules');
             if (!fs.existsSync(nodeModulesPath)) {
               appendLog(ideaId, `📦 Installing npm dependencies...`);
@@ -989,8 +1018,10 @@ ${devErrorLog || 'No build errors.'}
 If the project is completely implemented, is fully functional, has absolutely no errors, has zero placeholders/TODOs, and is ready for production, output the exact phrase: "STATUS: VERIFIED"
 Otherwise, list the remaining issues, missing features, or bugs that the AI Developer must resolve in the next iteration. Be constructive and highly specific.`;
 
-      const verifierAbort = AbortSignal.timeout(270_000);
+      // Environment-aware timeout — consistent with the Builder/Critic calls above.
+      const verifierAbort = AbortSignal.timeout(getAiCallTimeoutMs());
       const verifierResponse = await openai.chat.completions.create({
+
         model: MODEL_NAME,
         messages: [
           { role: 'system', content: 'You are an elite software auditor and QA verifier.' },
@@ -1184,6 +1215,106 @@ async function callAIWithRetry(
 }
 
 /**
+ * Normalize critique text for stable comparison across iterations: lowercase,
+ * collapse whitespace, and strip volatile bits (timestamps aren't present in
+ * critique text itself, but punctuation/casing drift can still cause false
+ * negatives). This keeps repetition detection robust to trivial rephrasing
+ * while still catching the common case of the Critic emitting near-identical
+ * feedback iteration after iteration.
+ */
+function normalizeCritique(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Autonomous "Clarifier AI" step: triggered when the Critic has repeated the
+ * SAME critique for several consecutive iterations (a stalled, non-progressing
+ * loop). Instead of stopping and waiting for a human to manually edit
+ * goal.md/requirements.md, this has the AIs "talk to each other" — a
+ * dedicated Clarifier persona reads the repeated critique plus the current
+ * goal/requirements/architecture docs and rewrites them to resolve the
+ * specific ambiguity or contradiction the Critic keeps flagging, breaking the
+ * deadlock automatically.
+ */
+async function runAutoClarification(ideaId: string, status: LoopStatus, repeatedCritique: string): Promise<void> {
+  appendLog(ideaId, '🧩 [Auto-Clarification] Detected repeated critique — Clarifier AI is rewriting goal.md/requirements.md/architecture.md to break the deadlock...');
+
+  const goalContent = await readWorkspaceFile(ideaId, 'goal.md');
+  const requirementsContent = await readWorkspaceFile(ideaId, 'requirements.md');
+  const architectureContent = await readWorkspaceFile(ideaId, 'architecture.md');
+
+  const clarifierPrompt = `You are "The Clarifier AI", a senior product manager and requirements engineer.
+The Builder AI and Critic AI have been stuck in a non-progressing loop: the Critic keeps repeating the SAME feedback below across multiple iterations, meaning the current goal/requirements/architecture documents are ambiguous, contradictory, or under-specified in a way that the Builder cannot resolve on its own.
+
+REPEATED CRITIC FEEDBACK (verbatim, unresolved for several iterations):
+${repeatedCritique}
+
+Current goal.md:
+${goalContent}
+
+Current requirements.md:
+${requirementsContent}
+
+Current architecture.md:
+${architectureContent}
+
+Your task: rewrite goal.md, requirements.md, and/or architecture.md to explicitly resolve the ambiguity/contradiction the Critic keeps flagging. Add concrete, unambiguous, and complete detail so the Builder AI has everything it needs to satisfy the Critic on the next attempt. Do not just restate the problem — actually make the decision and specify it clearly.
+
+You MUST format your output as a series of file blocks, like this:
+@@@ FILE: goal.md
+[Full rewritten file content here]
+@@@ END FILE @@@
+
+Only include files you are actually changing. Write complete file contents (not diffs/snippets).`;
+
+  try {
+    const clarifierAbort = AbortSignal.timeout(getAiCallTimeoutMs());
+    const clarifierResponse = await callAIWithRetry({
+
+      model: MODEL_NAME,
+      messages: [
+        { role: 'system', content: 'You are an elite product manager and requirements engineer who resolves ambiguous or contradictory specifications.' },
+        { role: 'user', content: clarifierPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 4096,
+    }, clarifierAbort);
+
+    const clarifierText = clarifierResponse.choices[0]?.message?.content || '';
+    const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
+    let match;
+    const clarifiedFiles: string[] = [];
+    while ((match = fileRegex.exec(clarifierText)) !== null) {
+      const filename = match[1].trim();
+      const content = match[2];
+      if (filename && validateWorkspaceFilePath(filename)) {
+        await writeWorkspaceFile(ideaId, filename, content);
+        clarifiedFiles.push(filename);
+        appendLog(ideaId, `🧩 Clarifier AI rewrote: ${filename}`);
+      }
+    }
+    if (clarifiedFiles.length === 0) {
+      appendLog(ideaId, '⚠️ Clarifier AI did not produce parseable file updates. Proceeding with next iteration anyway.');
+    } else {
+      appendLog(ideaId, `✅ Auto-Clarification complete. Resuming Builder ↔ Critic loop with the updated specs.`);
+    }
+  } catch (err: unknown) {
+    const errMsg = describeAiError(err);
+    appendLog(ideaId, `⚠️ Clarifier AI call failed: ${errMsg}. Proceeding with next iteration anyway.`);
+  }
+
+  // Reset repetition tracking so we give the Builder/Critic a fresh window to
+  // converge against the newly-clarified specs.
+  status.consecutiveCriticRepeats = 0;
+  status.lastCritiqueNormalized = '';
+  status.clarificationsUsed = (status.clarificationsUsed ?? 0) + 1;
+  await saveAgentLoopStatus(ideaId, status);
+}
+
+/**
  * Execute one Builder + Critic spec iteration.
  */
 async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise<void> {
@@ -1208,6 +1339,18 @@ async function executeSpecIteration(ideaId: string, status: LoopStatus): Promise
   // Truncate to prevent token overflows that cause HTTP 500 from the LLM gateway
   const currentFilesContent = truncateContext(fileContents.join('\n\n'));
 
+  // Inject the most recent (unresolved) Critic critique UNTRUNCATED so the
+  // Builder always has full visibility of exactly what it must fix. Previously
+  // this feedback was only available buried inside prompthistory.md, which is
+  // subject to the same MAX_CONTEXT_CHARS truncation as the rest of the file
+  // context — on long-running loops the truncateContext() cut could silently
+  // drop the tail (the newest critique), causing the Builder to "forget" what
+  // it was told to fix and effectively repeat the same mistakes forever.
+  const latestCritiqueBlock = status.lastCritiqueRaw
+    ? `\n\n⚠️ MOST RECENT CRITIC FEEDBACK (address this fully before anything else):\n${status.lastCritiqueRaw}\n`
+    : '';
+
+
   // === BUILDER PERSONA ===
   appendLog(ideaId, '🤖 Persona A (The Builder) is drafting updates...');
   const builderPrompt = `You are "The Builder AI", an expert software architect, requirements engineer, and software developer.
@@ -1215,7 +1358,7 @@ Your goal is to build out a complete, production-grade technical design, require
 
 Here is the current state of files in the workspace:
 ${currentFilesContent}
-
+${latestCritiqueBlock}
 Analyze these files and any critique provided previously. Rewrite or add content to these files to make them complete, robust, and professional.
 
 You MUST format your output as a series of instructions containing the file contents to write, like this:
@@ -1225,11 +1368,14 @@ You MUST format your output as a series of instructions containing the file cont
 
 Ensure you cover architecture, API specs, database schemes, folder layouts, and requirements. Write actual, highly-specific content rather than placeholders.`;
 
+
   let builderResponse;
   try {
-    // Use 110s timeout — well under Vercel's 300s maxDuration so we get a
-    // graceful TimeoutError instead of a silent hard-kill from the gateway.
-    const builderAbort = AbortSignal.timeout(110_000);
+    // Environment-aware timeout: 110s on cloud hosts (stays under Vercel's 300s
+    // maxDuration), 280s locally (no such platform ceiling, and the larger
+    // max_tokens below needs more wall-clock time for a reasoning model).
+    const builderAbort = AbortSignal.timeout(getAiCallTimeoutMs());
+
     builderResponse = await callAIWithRetry({
       model: MODEL_NAME,
       messages: [
@@ -1237,7 +1383,11 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
         { role: 'user', content: builderPrompt }
       ],
       temperature: 0.2,
-      max_tokens: 4096,
+      // 8192 (up from 4096): reasoning models spend a chunk of the token budget
+      // on internal "thinking" before emitting the visible file blocks. A tight
+      // limit was silently truncating output mid-file, corrupting files or
+      // producing zero parseable @@@ FILE blocks.
+      max_tokens: 8192,
     }, builderAbort);
   } catch (err: unknown) {
     const errMsg = describeAiError(err);
@@ -1249,8 +1399,13 @@ Ensure you cover architecture, API specs, database schemes, folder layouts, and 
     return;
   }
 
+  const builderFinishReason = builderResponse.choices[0]?.finish_reason;
+  if (builderFinishReason === 'length') {
+    appendLog(ideaId, `⚠️ [Builder Truncated] The Builder's response hit the max_tokens limit (finish_reason: "length") — some file content may be incomplete/cut off mid-file.`);
+  }
 
   const builderText = builderResponse.choices[0]?.message?.content || '';
+
   const fileRegex = /@@@ FILE:\s*([a-zA-Z0-9_\-\.\/]+)\r?\n([\s\S]*?)\r?\n@@@ END FILE @@@/g;
   let match;
   const filesUpdatedThisTurn: string[] = [];
@@ -1319,32 +1474,97 @@ Critique the workspace meticulously. Check for security vulnerabilities (e.g., O
 If everything is perfect and meets the goal of the project absolutely with no further revisions needed, output the exact phrase: "STATUS: APPROVED"
 Otherwise, provide constructive criticisms and detailed step-by-step correction instructions for "The Builder AI" to fix in the next iteration.`;
 
-  let criticResponse;
-  try {
-    // 110s timeout — same as Builder, leaves headroom before Vercel's 300s limit
-    const criticAbort = AbortSignal.timeout(110_000);
-    criticResponse = await callAIWithRetry({
-      model: MODEL_NAME,
-      messages: [
-        { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
-        { role: 'user', content: criticPrompt }
-      ],
-      temperature: 0.1,
-      max_tokens: 2048,
-    }, criticAbort);
-  } catch (err: unknown) {
-    const errMsg = describeAiError(err);
-    appendLog(ideaId, `❌ Critic AI call failed: ${errMsg}`);
+  // Minimum viable length for a real critique. Reasoning models can burn their
+  // entire token budget on internal "thinking" before writing anything visible,
+  // returning an empty/near-empty string with finish_reason: "length". Treating
+  // that as legitimate feedback would silently corrupt prompthistory.md and
+  // starve the Builder of any real guidance — worse than a normal repeat, since
+  // it never registers as a "repeat" (empty string is falsy) and so previously
+  // bypassed deadlock detection entirely.
+  const MIN_CRITIQUE_LENGTH = 30;
+  const CRITIC_MAX_TOKENS = 8192;
 
-    appendLog(ideaId, '⏹️ Halting iteration — consensus could not be evaluated. Check server logs for the full error.');
-    status.status = 'failed';
-    status.error = `Critic AI failed: ${errMsg}`;
+  let criticText = '';
+  let criticSucceeded = false;
+  const CRITIC_EMPTY_RETRIES = 2;
+
+  for (let attempt = 0; attempt <= CRITIC_EMPTY_RETRIES && !criticSucceeded; attempt++) {
+    let criticResponse;
+    try {
+      // Environment-aware timeout — same policy as the Builder call (110s on
+      // cloud hosts, 280s locally) so the larger max_tokens below has enough
+      // wall-clock time to complete without a false-positive abort.
+      const criticAbort = AbortSignal.timeout(getAiCallTimeoutMs());
+
+      criticResponse = await callAIWithRetry({
+        model: MODEL_NAME,
+        messages: [
+          { role: 'system', content: 'You are a rigorous code auditor and business security consultant.' },
+          { role: 'user', content: criticPrompt }
+        ],
+        temperature: 0.1,
+        // 8192 (up from 2048): reasoning models spend a chunk of their token
+        // budget on internal "thinking" before emitting the visible critique.
+        // A tight limit was causing the Critic to return truncated or
+        // completely empty responses (finish_reason: "length"), which then got
+        // silently persisted into prompthistory.md as if it were real feedback.
+        max_tokens: CRITIC_MAX_TOKENS,
+      }, criticAbort);
+    } catch (err: unknown) {
+      const errMsg = describeAiError(err);
+      appendLog(ideaId, `❌ Critic AI call failed: ${errMsg}`);
+      appendLog(ideaId, '⏹️ Halting iteration — consensus could not be evaluated. Check server logs for the full error.');
+      status.status = 'failed';
+      status.error = `Critic AI failed: ${errMsg}`;
+      await saveAgentLoopStatus(ideaId, status);
+      return;
+    }
+
+    const finishReason = criticResponse.choices[0]?.finish_reason;
+    const text = criticResponse.choices[0]?.message?.content || '';
+
+    if (finishReason === 'length') {
+      appendLog(ideaId, `⚠️ [Critic Truncated] The Critic's response hit the max_tokens limit (finish_reason: "length").`);
+    }
+
+    if (text.trim().length < MIN_CRITIQUE_LENGTH) {
+      appendLog(
+        ideaId,
+        `⚠️ [Empty/Truncated Critique Detected] The Critic returned little or no usable feedback (${text.trim().length} chars, finish_reason: "${finishReason}"). Retry ${attempt + 1}/${CRITIC_EMPTY_RETRIES + 1}...`
+      );
+      continue; // retry
+    }
+
+    criticText = text;
+    criticSucceeded = true;
+  }
+
+  if (!criticSucceeded) {
+    // All retries exhausted with empty/truncated output — this counts as a
+    // repetition-style stall (it will never self-resolve by just running more
+    // iterations), so feed it into the SAME deadlock/repeat counter that
+    // triggers the autonomous Clarifier AI rather than silently continuing.
+    appendLog(ideaId, `❌ Critic AI returned empty/truncated output after ${CRITIC_EMPTY_RETRIES + 1} attempts.`);
+    status.consecutiveCriticRepeats = (status.consecutiveCriticRepeats ?? 0) + 1;
+
+    const REPEAT_THRESHOLD = 2;
+    const MAX_CLARIFICATIONS = 2;
+    if (status.consecutiveCriticRepeats >= REPEAT_THRESHOLD) {
+      const clarificationsUsed = status.clarificationsUsed ?? 0;
+      if (clarificationsUsed < MAX_CLARIFICATIONS) {
+        await runAutoClarification(ideaId, status, '(Critic repeatedly returned empty/truncated output — likely a token-limit or reasoning-overhead issue.)');
+      } else {
+        appendLog(ideaId, `❌ [Stalled] Critic keeps returning empty/truncated output even after ${MAX_CLARIFICATIONS} auto-clarification attempts. Stopping to avoid an unbounded loop.`);
+        status.status = 'failed';
+        status.error = 'Spec loop stalled: Critic AI repeatedly returned empty/truncated output.';
+      }
+    }
     await saveAgentLoopStatus(ideaId, status);
     return;
   }
 
-  const criticText = criticResponse.choices[0]?.message?.content || '';
   appendLog(ideaId, '🕵️ Critic Audit completed. Recommending updates.');
+
 
   const iterationHistory = `## Iteration ${status.iteration} Audit & Design Log\n` +
     `**Timestamp:** ${new Date().toLocaleString()}\n` +
@@ -1356,7 +1576,41 @@ Otherwise, provide constructive criticisms and detailed step-by-step correction 
 
   const isApproved = criticText.includes('STATUS: APPROVED');
 
+  // --- Deadlock / non-progress detection ---
+  // If the Critic is repeating the SAME critique iteration after iteration,
+  // the loop is stuck and simply running more iterations will never help
+  // (the Builder keeps "fixing" things the same way and getting the same
+  // feedback back). Detect this and trigger the autonomous Clarifier AI to
+  // rewrite the specs and break the deadlock, rather than burning through all
+  // remaining iterations with zero progress.
+  if (!isApproved) {
+    const normalized = normalizeCritique(criticText);
+    if (status.lastCritiqueNormalized && normalized === status.lastCritiqueNormalized) {
+      status.consecutiveCriticRepeats = (status.consecutiveCriticRepeats ?? 0) + 1;
+      appendLog(ideaId, `⚠️ [Deadlock / Repetition Detected] Critic repeated the same feedback (Consecutive: ${status.consecutiveCriticRepeats}).`);
+    } else {
+      status.consecutiveCriticRepeats = 0;
+    }
+    status.lastCritiqueNormalized = normalized;
+    status.lastCritiqueRaw = criticText;
+
+    const REPEAT_THRESHOLD = 2; // trigger Clarifier after 2 consecutive identical critiques (3rd occurrence)
+    const MAX_CLARIFICATIONS = 2; // safety cap — last-resort backstop against infinite spend
+    if (status.consecutiveCriticRepeats >= REPEAT_THRESHOLD) {
+      const clarificationsUsed = status.clarificationsUsed ?? 0;
+      if (clarificationsUsed < MAX_CLARIFICATIONS) {
+        await runAutoClarification(ideaId, status, criticText);
+      } else {
+        appendLog(ideaId, `❌ [Stalled] Loop is still repeating after ${MAX_CLARIFICATIONS} auto-clarification attempts. Stopping to avoid an unbounded loop — manual review of goal.md/requirements.md is recommended.`);
+        status.status = 'failed';
+        status.error = 'Spec loop stalled: Builder/Critic repeated the same feedback even after automatic clarification attempts.';
+      }
+    }
+    await saveAgentLoopStatus(ideaId, status);
+  }
+
   if (isApproved) {
+
     appendLog(ideaId, '🎉 Consensus reached! The Critic AI has officially APPROVED the project specification.');
     status.status = 'completed';
     status.consensusReached = true;
