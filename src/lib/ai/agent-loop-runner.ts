@@ -698,6 +698,51 @@ export function launchIDE(ideaId: string, ide: 'vscode' | 'cursor' | 'kiro'): bo
   return true;
 }
 
+// Helper to prune developer conversation history to avoid token ballooning, keeping only the last 3 iterations (6 messages)
+function pruneDevHistory(history: { role: 'system' | 'user' | 'assistant'; content: string }[]): { role: 'system' | 'user' | 'assistant'; content: string }[] {
+  if (history.length <= 7) return history; // System (1) + last 3 iterations (6)
+  const systemMessage = history[0];
+  const lastSix = history.slice(-6);
+  const prunedSummary = {
+    role: 'user' as const,
+    content: '... [System Message: Older iteration history pruned to prevent token ballooning. All files are currently present in their latest state.] ...'
+  };
+  return [systemMessage, prunedSummary, ...lastSix];
+}
+
+// Helper to scan a critique text for mentioned file paths and check if they exist on disk
+function getMissingFilesFromCritique(critique: string, workspacePath: string): string[] {
+  if (!critique) return [];
+  const fileRegex = /([a-zA-Z0-9_\\-\\.\\/]+\\.[a-zA-Z0-9]{2,4})/g;
+  let match;
+  const mentioned = new Set<string>();
+  while ((match = fileRegex.exec(critique)) !== null) {
+    const filename = match[1].trim();
+    if (
+      filename.includes('/') && 
+      !filename.startsWith('node_modules/') && 
+      !filename.startsWith('.git/') &&
+      !filename.includes('..')
+    ) {
+      mentioned.add(filename);
+    } else if (
+      (filename.endsWith('.js') || filename.endsWith('.ts') || filename.endsWith('.tsx') || filename.endsWith('.html') || filename.endsWith('.css') || filename.endsWith('.json') || filename.endsWith('.md')) &&
+      filename !== 'agent_loop.js' &&
+      filename !== 'package.json'
+    ) {
+      mentioned.add(filename);
+    }
+  }
+  const missing: string[] = [];
+  for (const file of mentioned) {
+    const filePath = path.join(workspacePath, file);
+    if (!fs.existsSync(filePath)) {
+      missing.push(file);
+    }
+  }
+  return missing;
+}
+
 export async function executeDeveloperLoop(
   ideaId: string,
   ideaTitle: string,
@@ -740,6 +785,9 @@ Analyze the goals, create a complete folder structure, write package.json, src f
   initialStatus.status = 'running';
   await saveAgentLoopStatus(ideaId, initialStatus);
 
+  let lastDevSignature = '';
+  let consecutiveNoChanges = 0;
+
   for (let devIter = 1; devIter <= 5; devIter++) {
     if (abortControllers[ideaId]) {
       appendLog(ideaId, `🛑 Developer loop execution stopped by user.`);
@@ -773,20 +821,58 @@ Analyze the goals, create a complete folder structure, write package.json, src f
     }
     const filesContext = devFileContents.join('\n\n');
 
+    // Deadlock / Repetition Detection
+    const getDevWorkspaceSignature = () => {
+      let sig = '';
+      for (const rel of devFilesToSupply) {
+        try {
+          const content = devFileContents[devFilesToSupply.indexOf(rel)];
+          sig += `${rel}:${content}\n`;
+        } catch {}
+      }
+      return sig;
+    };
+
+    const currentSignature = getDevWorkspaceSignature();
+    if (devIter > 1 && currentSignature === lastDevSignature) {
+      consecutiveNoChanges++;
+      appendLog(ideaId, `⚠️ [Deadlock / Repetition Detected] No files changed on disk since last iteration (Consecutive: ${consecutiveNoChanges}).`);
+      if (consecutiveNoChanges >= 2) {
+        appendLog(ideaId, `⚠️ [Critical Deadlock] Injecting warning to AI Developer.`);
+        devErrorLog += "\n\n⚠️ SYSTEM WARNING: No files on disk have been changed. You are in a deadlock/repetition loop! Please change your strategy, review the requirements, or write/update files to break the loop.";
+      }
+    } else {
+      consecutiveNoChanges = 0;
+    }
+    lastDevSignature = currentSignature;
+
+    // Explicit Verification Scanning QA Feedback
+    let verificationWarning = "";
+    if (devErrorLog) {
+      const missingFiles = getMissingFilesFromCritique(devErrorLog, workspacePath);
+      if (missingFiles.length > 0) {
+        appendLog(ideaId, `⚠️ [File Verification Warning] Mentioned files missing on disk: ${missingFiles.join(', ')}`);
+        verificationWarning = `\n\n⚠️ SYSTEM LEVEL WARNING: The QA critique / build feedback specifically mentioned these files, but they DO NOT exist on disk. Please make sure to create and write their contents: ${missingFiles.join(', ')}`;
+      }
+    }
+
     let devPrompt = `Goal Description:\n${ideaDesc}\n\n${filesContext}`;
     if (devErrorLog) {
-      devPrompt += `\n\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\n${devErrorLog}\n\nPlease address and resolve these issues in this iteration!`;
+      devPrompt += `\n\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\n${devErrorLog}${verificationWarning}\n\nPlease address and resolve these issues in this iteration!`;
       devErrorLog = ''; // reset
     }
 
     devHistory.push({ role: 'user', content: devPrompt });
+    
+    // Prune history to keep only the last 3 iterations (6 messages)
+    const prunedDevHistory = pruneDevHistory(devHistory);
     appendLog(ideaId, `🤖 Calling AI Developer to generate/refine code...`);
 
     try {
       const devAbort = AbortSignal.timeout(270_000);
       const devResponse = await openai.chat.completions.create({
         model: MODEL_NAME,
-        messages: devHistory,
+        messages: prunedDevHistory,
         temperature: 0.3
       }, { signal: devAbort });
 
@@ -1567,6 +1653,80 @@ const colors = {
   bold: "\\x1b[1m"
 };
 
+// Recursively list all files in workspace excluding common ignore paths
+function getFilesRecursively(dir, baseDir = dir) {
+  let results = [];
+  if (!fs.existsSync(dir)) return results;
+  try {
+    const list = fs.readdirSync(dir);
+    for (const file of list) {
+      const absolutePath = path.join(dir, file);
+      const stat = fs.statSync(absolutePath);
+      if (stat && stat.isDirectory()) {
+        if (file !== 'node_modules' && file !== '.git' && file !== '.vscode' && file !== 'output' && !file.startsWith('.')) {
+          results = results.concat(getFilesRecursively(absolutePath, baseDir));
+        }
+      } else {
+        const relativePath = path.relative(baseDir, absolutePath);
+        if (relativePath !== 'agent_loop.js' && relativePath !== 'kill.lock' && !relativePath.startsWith('.')) {
+          results.push({ relativePath, absolutePath });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error reading directory recursively:', e);
+  }
+  return results;
+}
+
+// Helper to prune conversation history to avoid token ballooning, keeping only the last 3 iterations (6 messages)
+function pruneConversationHistory(history) {
+  if (history.length <= 7) return history; // System (1) + last 3 iterations (6)
+  const systemMessage = history[0];
+  const lastSix = history.slice(-6);
+  const prunedSummary = {
+    role: 'user',
+    content: '... [System Message: Older iteration history pruned to prevent token ballooning. All files are currently present below in their latest state.] ...'
+  };
+  return [systemMessage, prunedSummary, ...lastSix];
+}
+
+// Helper to scan a critique text for mentioned file paths and check if they exist on disk
+function verifyMentionedFiles(critique) {
+  if (!critique) return "";
+  const fileRegex = /([a-zA-Z0-9_\\\\-\\\\.\\\\/]+\\\\.[a-zA-Z0-9]{2,4})/g;
+  let match;
+  const mentioned = new Set();
+  while ((match = fileRegex.exec(critique)) !== null) {
+    const filename = match[1].trim();
+    if (
+      filename.includes('/') && 
+      !filename.startsWith('node_modules/') && 
+      !filename.startsWith('.git/') &&
+      !filename.includes('..')
+    ) {
+      mentioned.add(filename);
+    } else if (
+      (filename.endsWith('.js') || filename.endsWith('.ts') || filename.endsWith('.tsx') || filename.endsWith('.html') || filename.endsWith('.css') || filename.endsWith('.json') || filename.endsWith('.md')) &&
+      filename !== 'agent_loop.js' &&
+      filename !== 'package.json'
+    ) {
+      mentioned.add(filename);
+    }
+  }
+  const missing = [];
+  for (const file of mentioned) {
+    if (!fs.existsSync(file)) {
+      missing.push(file);
+    }
+  }
+  if (missing.length > 0) {
+    console.log(\`\\n\${colors.yellow}⚠️  [File Verification Warning] The QA critique mentioned these files, but they do not exist on disk: \${missing.join(', ')}\${colors.reset}\`);
+    return \`\\n\\n⚠️ SYSTEM LEVEL WARNING: The QA critique / build feedback specifically mentioned these files, but they DO NOT exist on disk. Please make sure to create and write their contents: \${missing.join(', ')}\`;
+  }
+  return "";
+}
+
 console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\`);
 console.log(\`  🚀 \${colors.bold}\${colors.green}Welcome to the AI Marketplace Local Agent Loop!\${colors.reset}\`);
 console.log(\`\${colors.bold}\${colors.cyan}==================================================\${colors.reset}\\n\`);
@@ -1776,6 +1936,8 @@ Analyze the goals, create a complete folder structure, write package.json, src f
   let maxIterations = 5;
   let iteration = 1;
   let running = true;
+  let lastSignature = "";
+  let consecutiveNoChanges = 0;
 
   while (running && iteration <= maxIterations) {
     // Check for kill switch file
@@ -1788,28 +1950,59 @@ Analyze the goals, create a complete folder structure, write package.json, src f
     console.log(\`⚙️  \${colors.bold}\${colors.cyan}Local Agent Loop - Iteration \${iteration} of \${maxIterations}\${colors.reset}\`);
     console.log(\`\${colors.bold}\${colors.yellow}==================================================\${colors.reset}\`);
 
-    // Scan workspace files
-    const files = fs.readdirSync('.')
-      .filter(f => !f.startsWith('.') && f !== 'node_modules' && f !== 'agent_loop.js' && f !== 'kill.lock');
+    // Scan workspace files recursively
+    const files = getFilesRecursively('.');
     
     let currentWorkspaceState = "Current Local Files:\\n";
-    files.forEach(file => {
+    files.forEach(fileInfo => {
       try {
-        const stats = fs.statSync(file);
-        if (stats.isFile()) {
-          const content = fs.readFileSync(file, 'utf8');
-          currentWorkspaceState += \`\\n--- FILE: \${file} ---\\n\${content}\\n--- END FILE ---\\n\`;
-        }
+        const content = fs.readFileSync(fileInfo.absolutePath, 'utf8');
+        currentWorkspaceState += \`\\n--- FILE: \${fileInfo.relativePath} ---\\n\${content}\\n--- END FILE ---\\n\`;
       } catch (e) {}
     });
 
+    // Deadlock / Repetition Detection
+    function getWorkspaceSignature() {
+      let sig = '';
+      files.forEach(fileInfo => {
+        try {
+          const content = fs.readFileSync(fileInfo.absolutePath, 'utf8');
+          sig += fileInfo.relativePath + ':' + content + '\\n';
+        } catch (e) {}
+      });
+      return sig;
+    }
+
+    const currentSignature = getWorkspaceSignature();
+    if (iteration > 1 && currentSignature === lastSignature) {
+      consecutiveNoChanges++;
+      console.log(\`\\n\${colors.yellow}⚠️  [Deadlock / Repetition Detected] No files changed on disk since last iteration (Consecutive: \${consecutiveNoChanges}).\${colors.reset}\`);
+      if (consecutiveNoChanges >= 2) {
+        console.log(\`\${colors.red}\${colors.bold}⚠️  [Critical Deadlock] The loop is repeating with no progress. Injecting a system warning to the AI and pausing briefly...\${colors.reset}\`);
+        testErrorLog += "\\n\\n⚠️ SYSTEM WARNING: No files on disk have been changed. You are in a deadlock/repetition loop! Please change your strategy, review the requirements, or write/update files to break the loop.";
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    } else {
+      consecutiveNoChanges = 0;
+    }
+    lastSignature = currentSignature;
+
+    // Explicit Verification Scanning QA Feedback
+    let verificationWarning = "";
+    if (testErrorLog) {
+      verificationWarning = verifyMentionedFiles(testErrorLog);
+    }
+
     let iterationPrompt = \`Goal Description:\\n\${goalContent}\\n\\n\${currentWorkspaceState}\`;
     if (testErrorLog) {
-      iterationPrompt += \`\\n\\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\\n\${testErrorLog}\\n\\nPlease address and resolve these issues in this iteration!\`;
+      iterationPrompt += \`\\n\\n⚠️ PREVIOUS BUILD/COMPILE ERRORS OR QA CRITIQUE:\\n\${testErrorLog}\${verificationWarning}\\n\\nPlease address and resolve these issues in this iteration!\`;
       testErrorLog = ""; // reset
     }
 
     conversationHistory.push({ role: 'user', content: iterationPrompt });
+
+    // Prune history to keep only the last 3 iterations (6 messages)
+    conversationHistory = pruneConversationHistory(conversationHistory);
 
     console.log(\`🤖 Calling AI Developer to generate/refine code...\`);
     try {
@@ -1884,18 +2077,14 @@ Analyze the goals, create a complete folder structure, write package.json, src f
       // QA Audit Step
       console.log(\`🕵️  \${colors.bold}\${colors.cyan}Calling AI QA Verifier to audit the implementation...\${colors.reset}\`);
       
-      // Rescan workspace state
-      const freshFiles = fs.readdirSync('.')
-        .filter(f => !f.startsWith('.') && f !== 'node_modules' && f !== 'agent_loop.js' && f !== 'kill.lock');
+      // Rescan workspace state recursively
+      const freshFiles = getFilesRecursively('.');
       
       let freshWorkspaceState = "Current Local Files:\\n";
-      freshFiles.forEach(file => {
+      freshFiles.forEach(fileInfo => {
         try {
-          const stats = fs.statSync(file);
-          if (stats.isFile()) {
-            const content = fs.readFileSync(file, 'utf8');
-            freshWorkspaceState += \`\\n--- FILE: \${file} ---\\n\${content}\\n--- END FILE ---\\n\`;
-          }
+          const content = fs.readFileSync(fileInfo.absolutePath, 'utf8');
+          freshWorkspaceState += \`\\n--- FILE: \${fileInfo.relativePath} ---\\n\${content}\\n--- END FILE ---\\n\`;
         } catch (e) {}
       });
 
